@@ -117,7 +117,11 @@ def get_teacher_earnings(
             else Decimal("0.00")
         )
 
-    return sorted(earnings.values(), key=lambda item: (item["teacher_earned"], item["teacher_name"]), reverse=True)
+    return sorted(
+        earnings.values(),
+        key=lambda item: (item["last_visit_date"] or date.min, item["teacher_earned"], item["teacher_name"]),
+        reverse=True,
+    )
 
 
 def get_summary(
@@ -126,11 +130,25 @@ def get_summary(
     date_to: date | None = None,
     teacher_id: int | None = None,
 ) -> dict:
+    teacher_membership_ids: list[int] | None = None
+    if teacher_id:
+        teacher_membership_query = db.query(Visit.membership_id).filter(
+            Visit.teacher_id == teacher_id,
+            Visit.is_cancelled.is_(False),
+        )
+        if date_from:
+            teacher_membership_query = teacher_membership_query.filter(Visit.visit_date >= date_from)
+        if date_to:
+            teacher_membership_query = teacher_membership_query.filter(Visit.visit_date <= date_to)
+        teacher_membership_ids = [row[0] for row in teacher_membership_query.distinct().all()]
+
     memberships_query = db.query(func.coalesce(func.sum(Membership.price), 0))
     if date_from:
         memberships_query = memberships_query.filter(Membership.start_date >= date_from)
     if date_to:
         memberships_query = memberships_query.filter(Membership.start_date <= date_to)
+    if teacher_membership_ids is not None:
+        memberships_query = memberships_query.filter(Membership.id.in_(teacher_membership_ids))
     memberships_sold_total = Decimal(memberships_query.scalar() or 0)
 
     payments_query = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.is_cancelled.is_(False))
@@ -138,6 +156,8 @@ def get_summary(
         payments_query = payments_query.filter(Payment.payment_date >= date_from)
     if date_to:
         payments_query = payments_query.filter(Payment.payment_date <= date_to)
+    if teacher_membership_ids is not None:
+        payments_query = payments_query.filter(Payment.membership_id.in_(teacher_membership_ids))
     payments_received_total = Decimal(payments_query.scalar() or 0)
 
     visit_query = db.query(Visit).filter(Visit.is_cancelled.is_(False))

@@ -22,17 +22,15 @@ export function FinancePage() {
     queryFn: () => financeService.teacherEarnings({ ...filters, include_cancelled: true }),
   });
 
-  const completedValue = Number(summary.data?.completed_lessons_value ?? 0);
-  const teacherTotal = Number(summary.data?.teacher_earnings_total ?? 0);
-  const schoolTotal = Number(summary.data?.school_earnings_total ?? 0);
-  const teacherPercent = completedValue ? Math.round((teacherTotal / completedValue) * 100) : 0;
-  const schoolPercent = completedValue ? Math.max(0, 100 - teacherPercent) : 0;
+  const selectedTeacherName = teachers.data?.find((teacher) => String(teacher.id) === teacherId)?.full_name;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Финансы</h1>
-        <p className="mt-1 text-sm text-slate-500">Продажи, проведенные занятия, выплаты преподавателям и доход школы.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Продажи, оплаты, проведенные занятия, выплаты преподавателям и доход школы.
+        </p>
       </div>
 
       <section className="panel p-5">
@@ -67,6 +65,12 @@ export function FinancePage() {
         <ErrorState onRetry={() => { summary.refetch(); earnings.refetch(); }} />
       ) : null}
 
+      {selectedTeacherName ? (
+        <div className="rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          Показатели продаж и оплат отфильтрованы по абонементам, где были занятия преподавателя: <b>{selectedTeacherName}</b>.
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Продажи абонементов" value={toCurrency(summary.data?.memberships_sold_total ?? 0)} hint="По дате начала абонемента" />
         <StatCard label="Получено оплат" value={toCurrency(summary.data?.payments_received_total ?? 0)} hint="Неотмененные платежи" />
@@ -80,24 +84,6 @@ export function FinancePage() {
         <StatCard label="Средняя выплата преподавателю" value={toCurrency(summary.data?.average_teacher_earning ?? 0)} />
         <StatCard label="Активных преподавателей" value={summary.data?.active_teachers_count ?? 0} />
       </div>
-
-      <section className="panel p-5">
-        <h2 className="font-bold text-ink">Распределение стоимости проведенных занятий</h2>
-        {completedValue ? (
-          <div className="mt-4 space-y-3">
-            <div className="flex h-4 overflow-hidden rounded-full bg-slate-100">
-              <div className="bg-mint" style={{ width: `${teacherPercent}%` }} />
-              <div className="bg-coral" style={{ width: `${schoolPercent}%` }} />
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <DistributionItem title="Преподавателям" value={teacherTotal} percent={teacherPercent} color="bg-mint" />
-              <DistributionItem title="Школе" value={schoolTotal} percent={schoolPercent} color="bg-coral" />
-            </div>
-          </div>
-        ) : (
-          <EmptyText text="За выбранный период проведенных занятий нет." />
-        )}
-      </section>
 
       <section className="panel overflow-hidden">
         <SectionTitle title="Заработок преподавателей" />
@@ -216,21 +202,6 @@ function VisitDetails({ item }: { item: TeacherEarning }) {
         ))}
       </tbody>
     </table>
-  );
-}
-
-function DistributionItem({ title, value, percent, color }: { title: string; value: number; percent: number; color: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <span className={`h-3 w-3 rounded-full ${color}`} />
-        <span className="font-medium text-slate-700">{title}</span>
-      </div>
-      <div className="text-right">
-        <div className="font-bold text-ink">{toCurrency(value)}</div>
-        <div className="text-xs text-slate-500">{percent}%</div>
-      </div>
-    </div>
   );
 }
 

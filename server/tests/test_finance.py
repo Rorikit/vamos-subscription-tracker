@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Teacher
+from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
 from app.services.memberships import cancel_visit, write_off_visit
 
@@ -36,6 +36,8 @@ class FinanceSnapshotTest(unittest.TestCase):
             status=MembershipStatus.ACTIVE,
         )
         self.db.add(membership)
+        self.db.commit()
+        self.db.add(Payment(participant_id=participant.id, membership_id=membership.id, amount=Decimal("14400"), payment_date=date.today(), payment_method="cash"))
         self.db.commit()
         self.participant_id = participant.id
         self.teacher_id = teacher.id
@@ -83,6 +85,38 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.assertEqual(get_summary(self.db, date_from=tomorrow)["completed_visits_count"], 0)
         self.assertEqual(get_summary(self.db, teacher_id=self.teacher_id)["completed_visits_count"], 1)
         self.assertEqual(get_teacher_earnings(self.db, teacher_id=self.teacher_id)[0]["visits_count"], 1)
+
+    def test_teacher_filter_limits_sales_and_payments_to_teacher_memberships(self) -> None:
+        second_participant = Participant(full_name="Мария Соколова")
+        second_teacher = Teacher(full_name="Ольга Сергеева", teacher_share_percent=Decimal("50"))
+        self.db.add_all([second_participant, second_teacher])
+        self.db.commit()
+
+        second_membership = Membership(
+            participant_id=second_participant.id,
+            membership_type_id=self.db.get(Membership, self.membership_id).membership_type_id,
+            total_lessons=8,
+            remaining_lessons=8,
+            price=Decimal("8000"),
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=30),
+            status=MembershipStatus.ACTIVE,
+        )
+        self.db.add(second_membership)
+        self.db.commit()
+        self.db.add(Payment(participant_id=second_participant.id, membership_id=second_membership.id, amount=Decimal("8000"), payment_date=date.today(), payment_method="cash"))
+        self.db.commit()
+
+        write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        write_off_visit(self.db, second_participant.id, second_membership.id, second_teacher.id, date.today())
+
+        all_summary = get_summary(self.db)
+        teacher_summary = get_summary(self.db, teacher_id=self.teacher_id)
+
+        self.assertEqual(all_summary["memberships_sold_total"], Decimal("22400.00"))
+        self.assertEqual(all_summary["payments_received_total"], Decimal("22400.00"))
+        self.assertEqual(teacher_summary["memberships_sold_total"], Decimal("14400.00"))
+        self.assertEqual(teacher_summary["payments_received_total"], Decimal("14400.00"))
 
     def test_zero_total_lessons_is_rejected(self) -> None:
         membership = self.db.get(Membership, self.membership_id)
