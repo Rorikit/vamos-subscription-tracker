@@ -14,8 +14,13 @@ router = APIRouter(prefix="/finance", tags=["finance"])
 
 
 @router.get("/summary", response_model=FinanceSummary)
-def summary(db: Session = Depends(get_db)):
-    return get_summary(db)
+def summary(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    teacher_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return get_summary(db, date_from=date_from, date_to=date_to, teacher_id=teacher_id)
 
 
 @router.get("/teacher-earnings", response_model=list[TeacherEarning])
@@ -23,9 +28,10 @@ def teacher_earnings(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     teacher_id: int | None = Query(default=None),
+    include_cancelled: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
-    return get_teacher_earnings(db, date_from=date_from, date_to=date_to, teacher_id=teacher_id)
+    return get_teacher_earnings(db, date_from=date_from, date_to=date_to, teacher_id=teacher_id, include_cancelled=include_cancelled)
 
 
 @router.get("/payments", response_model=list[PaymentRead])

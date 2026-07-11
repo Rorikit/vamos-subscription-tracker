@@ -48,6 +48,7 @@ export type Teacher = {
   full_name: string;
   phone: string | null;
   comment: string | null;
+  teacher_share_percent: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -59,6 +60,10 @@ export type Visit = {
   membership_id: number;
   teacher_id: number;
   visit_date: string;
+  lesson_price: string | null;
+  teacher_share_percent: string | null;
+  teacher_earning: string | null;
+  school_earning: string | null;
   is_cancelled: boolean;
   participant?: { id: number; full_name: string } | null;
   teacher?: { id: number; full_name: string } | null;
@@ -78,10 +83,15 @@ export type Payment = {
 };
 
 export type FinanceSummary = {
-  total_revenue: string;
-  total_visits: number;
+  memberships_sold_total: string;
+  payments_received_total: string;
+  completed_lessons_value: string;
   teacher_earnings_total: string;
-  teacher_earnings: TeacherEarning[];
+  school_earnings_total: string;
+  completed_visits_count: number;
+  average_lesson_price: string;
+  average_teacher_earning: string;
+  active_teachers_count: number;
 };
 
 export type TeacherEarningVisit = {
@@ -92,14 +102,23 @@ export type TeacherEarningVisit = {
   membership_id: number;
   membership_name: string;
   lesson_price: string;
+  teacher_share_percent: string;
+  teacher_earning: string;
+  school_earning: string;
   is_cancelled: boolean;
 };
 
 export type TeacherEarning = {
   teacher_id: number;
   teacher_name: string;
+  teacher_share_percent: string;
   visits_count: number;
-  total_earned: string;
+  completed_lessons_value: string;
+  teacher_earned: string;
+  school_earned: string;
   average_lesson_price: string;
+  average_teacher_earning: string;
+  share_of_total_teacher_payouts: string;
+  last_visit_date: string | null;
   visits: TeacherEarningVisit[];
 };

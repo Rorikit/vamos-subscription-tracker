@@ -7,15 +7,6 @@ from app.schemas.payment import PaymentRead
 from app.schemas.visit import VisitRead
 
 
-class TeacherEarning(ApiModel):
-    teacher_id: int
-    teacher_name: str
-    visits_count: int
-    total_earned: Decimal
-    average_lesson_price: Decimal
-    visits: list["TeacherEarningVisit"]
-
-
 class TeacherEarningVisit(ApiModel):
     visit_id: int
     visit_date: date
@@ -24,14 +15,37 @@ class TeacherEarningVisit(ApiModel):
     membership_id: int
     membership_name: str
     lesson_price: Decimal
+    teacher_share_percent: Decimal
+    teacher_earning: Decimal
+    school_earning: Decimal
     is_cancelled: bool
 
 
+class TeacherEarning(ApiModel):
+    teacher_id: int
+    teacher_name: str
+    teacher_share_percent: Decimal
+    visits_count: int
+    completed_lessons_value: Decimal
+    teacher_earned: Decimal
+    school_earned: Decimal
+    average_lesson_price: Decimal
+    average_teacher_earning: Decimal
+    share_of_total_teacher_payouts: Decimal
+    last_visit_date: date | None = None
+    visits: list[TeacherEarningVisit]
+
+
 class FinanceSummary(ApiModel):
-    total_revenue: Decimal
-    total_visits: int
+    memberships_sold_total: Decimal
+    payments_received_total: Decimal
+    completed_lessons_value: Decimal
     teacher_earnings_total: Decimal
-    teacher_earnings: list[TeacherEarning]
+    school_earnings_total: Decimal
+    completed_visits_count: int
+    average_lesson_price: Decimal
+    average_teacher_earning: Decimal
+    active_teachers_count: int
 
 
 class DashboardData(ApiModel):
@@ -45,3 +59,4 @@ class TeacherEarningsQuery(ApiModel):
     date_from: date | None = None
     date_to: date | None = None
     teacher_id: int | None = None
+    include_cancelled: bool = False

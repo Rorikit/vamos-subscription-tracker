@@ -233,10 +233,11 @@ export function TeacherForm({ teacher, onDone }: { teacher?: Teacher; onDone: ()
   const [fullName, setFullName] = useState(teacher?.full_name ?? "");
   const [phone, setPhone] = useState(teacher?.phone ?? "");
   const [comment, setComment] = useState(teacher?.comment ?? "");
+  const [teacherSharePercent, setTeacherSharePercent] = useState(teacher?.teacher_share_percent ?? "50");
   const [isActive, setIsActive] = useState(teacher?.is_active ?? true);
   const mutation = useMutation({
     mutationFn: () => {
-      const payload = { full_name: fullName, phone, comment, is_active: isActive };
+      const payload = { full_name: fullName, phone, comment, teacher_share_percent: teacherSharePercent, is_active: isActive };
       return teacher ? teacherService.update(teacher.id, payload) : teacherService.create(payload);
     },
     onSuccess: () => {
@@ -250,6 +251,7 @@ export function TeacherForm({ teacher, onDone }: { teacher?: Teacher; onDone: ()
       <Field label="ФИО" value={fullName} onChange={setFullName} required />
       <Field label="Телефон" value={phone} onChange={setPhone} />
       <Field label="Комментарий" value={comment} onChange={setComment} />
+      <Field label="Процент преподавателя" value={teacherSharePercent} onChange={setTeacherSharePercent} type="number" required />
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
         <input checked={isActive} type="checkbox" onChange={(event) => setIsActive(event.target.checked)} />
         Активен
@@ -292,4 +294,3 @@ function submit(event: FormEvent, action: () => void) {
   event.preventDefault();
   action();
 }
-

@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher, Visit
+from app.services.lesson_finance import calculate_visit_financials
 
 
 def paid_amount(db: Session, membership_id: int) -> Decimal:
@@ -112,11 +113,16 @@ def write_off_visit(
     if membership.remaining_lessons <= 0:
         raise HTTPException(status_code=400, detail="Занятия закончились")
 
+    financials = calculate_visit_financials(membership, teacher)
     visit = Visit(
         participant_id=participant_id,
         membership_id=membership.id,
         teacher_id=teacher_id,
         visit_date=visit_date or date.today(),
+        lesson_price=financials["lesson_price"],
+        teacher_share_percent=financials["teacher_share_percent"],
+        teacher_earning=financials["teacher_earning"],
+        school_earning=financials["school_earning"],
     )
     membership.remaining_lessons -= 1
     if membership.remaining_lessons == 0:

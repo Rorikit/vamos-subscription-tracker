@@ -107,6 +107,7 @@ export function SettingsPage() {
               <th className="th">ФИО</th>
               <th className="th">Телефон</th>
               <th className="th">Комментарий</th>
+              <th className="th">Процент преподавателя</th>
               <th className="th">Статус</th>
               <th className="th">Действия</th>
             </tr>
@@ -117,6 +118,7 @@ export function SettingsPage() {
                 <td className="td font-semibold text-ink">{teacher.full_name}</td>
                 <td className="td">{teacher.phone ?? "—"}</td>
                 <td className="td">{teacher.comment ?? "—"}</td>
+                <td className="td">{Number(teacher.teacher_share_percent).toLocaleString("ru-RU")}%</td>
                 <td className="td">{teacher.is_active ? "Активен" : "Отключен"}</td>
                 <td className="td">
                   <button className="font-semibold text-mint hover:text-teal-700" onClick={() => setTeacherModal(teacher)}>

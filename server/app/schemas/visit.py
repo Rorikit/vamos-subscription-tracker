@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -18,6 +19,10 @@ class VisitRead(ApiModel):
     membership_id: int
     teacher_id: int
     visit_date: date
+    lesson_price: Decimal | None = None
+    teacher_share_percent: Decimal | None = None
+    teacher_earning: Decimal | None = None
+    school_earning: Decimal | None = None
     is_cancelled: bool
     participant: ParticipantSnapshot | None = None
     teacher: TeacherSnapshot | None = None

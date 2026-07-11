@@ -8,6 +8,7 @@ import { StatusBadge } from "../../shared/ui/StatusBadge";
 
 export function DashboardPage() {
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: financeService.dashboard });
+  const earnings = useQuery({ queryKey: ["teacher-earnings", "dashboard"], queryFn: () => financeService.teacherEarnings() });
   const active = data?.memberships.filter((membership) => membership.is_currently_active) ?? [];
   const endingSoon = active.filter((membership) => daysLeft(membership.end_date) <= 7 || membership.remaining_lessons <= 2);
   if (isLoading) return <div className="panel p-6">Загрузка...</div>;
@@ -21,8 +22,8 @@ export function DashboardPage() {
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Активные абонементы" value={active.length} />
         <StatCard label="Скоро закончатся" value={endingSoon.length} />
-        <StatCard label="Выручка" value={toCurrency(data?.summary.total_revenue ?? 0)} />
-        <StatCard label="Заработок преподавателей" value={toCurrency(data?.summary.teacher_earnings_total ?? 0)} />
+        <StatCard label="Стоимость проведенных занятий" value={toCurrency(data?.summary.completed_lessons_value ?? 0)} />
+        <StatCard label="Доход школы" value={toCurrency(data?.summary.school_earnings_total ?? 0)} />
       </div>
       <div className="grid grid-cols-2 gap-6">
         <section className="panel">
@@ -47,14 +48,14 @@ export function DashboardPage() {
           <Header title="Заработок преподавателей" link="/finance" />
           <table className="w-full">
             <thead>
-              <tr><th className="th">Преподаватель</th><th className="th">Занятий</th><th className="th">Заработано</th></tr>
+              <tr><th className="th">Преподаватель</th><th className="th">Занятий</th><th className="th">Выплата</th></tr>
             </thead>
             <tbody>
-              {data?.summary.teacher_earnings.map((item) => (
+              {earnings.data?.slice(0, 7).map((item) => (
                 <tr key={item.teacher_id}>
                   <td className="td">{item.teacher_name}</td>
                   <td className="td">{item.visits_count}</td>
-                  <td className="td font-semibold text-ink">{toCurrency(item.total_earned)}</td>
+                  <td className="td font-semibold text-ink">{toCurrency(item.teacher_earned)}</td>
                 </tr>
               ))}
             </tbody>
