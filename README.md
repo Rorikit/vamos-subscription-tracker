@@ -142,6 +142,30 @@ docker compose -f docker-compose.prod.yml --env-file .env down -v
 
 SQLite хранится в Docker volume `backend-data` внутри контейнера по пути `/app/data/app.db`.
 
+## Автодеплой с GitHub
+
+На сервере можно включить systemd-таймер, который раз в минуту проверяет `origin/main`.
+Если в GitHub появился новый коммит, сервер подтягивает его и пересобирает production Docker Compose.
+
+```bash
+cd /opt/vamos-subscription-tracker
+git pull --ff-only
+sudo bash deploy/install-auto-deploy.sh
+```
+
+Проверить таймер:
+
+```bash
+systemctl status vamos-auto-deploy.timer
+journalctl -u vamos-auto-deploy.service -n 100 --no-pager
+```
+
+Отключить автодеплой:
+
+```bash
+systemctl disable --now vamos-auto-deploy.timer
+```
+
 ## Локальный запуск Backend
 
 ```powershell

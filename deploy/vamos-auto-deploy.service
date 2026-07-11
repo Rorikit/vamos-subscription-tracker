@@ -1,0 +1,13 @@
+[Unit]
+Description=Vamos Subscription Tracker Git auto deploy
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/vamos-subscription-tracker
+Environment=APP_DIR=/opt/vamos-subscription-tracker
+Environment=BRANCH=main
+Environment=COMPOSE_FILE=docker-compose.prod.yml
+Environment=ENV_FILE=.env
+ExecStart=/usr/bin/env bash /opt/vamos-subscription-tracker/deploy/git-auto-deploy.sh
