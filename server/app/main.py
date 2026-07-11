@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
-from app.routers import auth, finance, membership_types, memberships, participants, payments, teachers, visits
+from app.routers import auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, get_current_operator
 from app.services.finance import ensure_teacher_seed
@@ -33,6 +33,7 @@ app.include_router(memberships.router, dependencies=protected)
 app.include_router(visits.router, dependencies=protected)
 app.include_router(payments.router, dependencies=protected)
 app.include_router(teachers.router, dependencies=protected)
+app.include_router(operators.router, dependencies=protected)
 app.include_router(finance.router, dependencies=protected)
 
 

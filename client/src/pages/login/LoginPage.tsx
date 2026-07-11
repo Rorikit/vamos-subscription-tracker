@@ -10,7 +10,7 @@ export function LoginPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState("operator");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const mutation = useMutation({
@@ -47,7 +47,7 @@ export function LoginPage() {
         <form className="panel space-y-4 p-6" onSubmit={submit}>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Логин</span>
-            <input className="input" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
+            <input className="input" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" autoFocus />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Пароль</span>
@@ -57,7 +57,6 @@ export function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
-              autoFocus
             />
           </label>
 
@@ -67,10 +66,6 @@ export function LoginPage() {
             <LogIn size={18} />
             {mutation.isPending ? "Входим..." : "Войти"}
           </button>
-
-          <div className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
-            Первый оператор создается автоматически. По умолчанию: логин <b>operator</b>, пароль <b>vamos123</b>.
-          </div>
         </form>
       </div>
     </div>
