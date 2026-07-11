@@ -1,6 +1,6 @@
 # Vamos Subscription Tracker
 
-Локальное fullstack-приложение для учета участников, абонементов, занятий, оплат и заработка преподавателей.
+Локальное и серверное fullstack-приложение для учета участников, абонементов, занятий, оплат и заработка преподавателей.
 
 Интерфейс на русском языке, desktop-first. Рабочие разделы защищены входом оператора.
 
@@ -15,6 +15,7 @@
 - ORM: SQLAlchemy
 - Валидация: Pydantic
 - Контейнеризация: Docker Compose
+- Production reverse proxy: Caddy
 
 ## Авторизация
 
@@ -25,21 +26,19 @@
 Пароль: vamos123
 ```
 
-Для деплоя переопределите `AUTH_SECRET`, `OPERATOR_USERNAME`, `OPERATOR_PASSWORD`, `OPERATOR_FULL_NAME`, `AUTH_TOKEN_TTL_HOURS`.
+Для деплоя обязательно переопределите `AUTH_SECRET`, `OPERATOR_USERNAME`, `OPERATOR_PASSWORD`, `OPERATOR_FULL_NAME`, `AUTH_TOKEN_TTL_HOURS`.
 
 Новых пользователей можно создавать, редактировать и отключать в разделе `/settings`, блок «Пользователи».
 
 ## Финансовая модель
 
-Финансы разделены на несколько разных показателей:
+Финансы разделены на несколько показателей:
 
 - «Продажи абонементов» — сумма цен абонементов по дате начала абонемента.
 - «Получено оплат» — сумма неотмененных платежей по дате платежа.
 - «Стоимость проведенных занятий» — клиентская стоимость только фактически проведенных и не возвращенных занятий.
 - «Выплаты преподавателям» — часть стоимости проведенных занятий по проценту преподавателя.
 - «Доход школы» — стоимость проведенных занятий минус выплаты преподавателям.
-
-Продажи абонементов не равны доходу школы: деньги за еще не проведенные занятия не считаются заработком школы.
 
 Формула для занятия:
 
@@ -49,13 +48,11 @@ teacher_earning = lesson_price * teacher_share_percent / 100
 school_earning = lesson_price - teacher_earning
 ```
 
-Процент преподавателя настраивается в карточке преподавателя в разделе `/settings`.
-
-При списании занятия финансовые значения сохраняются в `Visit`: `lesson_price`, `teacher_share_percent`, `teacher_earning`, `school_earning`. Поэтому изменение цены абонемента или процента преподавателя не пересчитывает старые занятия.
-
 Возврат занятия работает через `Visit.is_cancelled = true`: занятие остается в истории со статусом «Возвращено», возвращает одно занятие в абонемент и исключается из финансовых итогов.
 
-## Запуск через Docker
+## Локальный запуск через Docker
+
+Локальный Docker-запуск использует Vite dev server на порту `5174`.
 
 ```powershell
 docker compose up --build
@@ -78,6 +75,72 @@ docker compose down
 ```powershell
 docker compose down -v
 ```
+
+## Production-деплой через Docker
+
+Для сервера добавлен отдельный production-compose:
+
+- `docker-compose.prod.yml`
+- `client/Dockerfile.prod`
+- `client/nginx.conf`
+- `deploy/Caddyfile`
+- `.env.production.example`
+
+Production-схема:
+
+- `backend` запускает FastAPI на внутреннем порту `8000`;
+- `frontend` собирает React-приложение и раздает статические файлы через Nginx;
+- `caddy` принимает HTTP/HTTPS на портах `80` и `443`, выпускает HTTPS-сертификат и проксирует:
+  - сайт на `frontend:80`;
+  - API через `/api/*` на backend;
+  - Swagger через `/docs`.
+
+### Что нужно для деплоя
+
+1. VPS с Ubuntu.
+2. Домен.
+3. DNS A-запись домена на IP сервера.
+4. Docker и Docker Compose Plugin на сервере.
+5. Открытые порты `80` и `443`.
+
+### Команды на сервере
+
+```bash
+git clone https://github.com/Rorikit/vamos-subscription-tracker.git
+cd vamos-subscription-tracker
+cp .env.production.example .env
+nano .env
+docker compose -f docker-compose.prod.yml --env-file .env up --build -d
+```
+
+В `.env` нужно заменить минимум:
+
+```env
+DOMAIN=your-domain.com
+AUTH_SECRET=long-random-secret
+OPERATOR_PASSWORD=strong-password
+CORS_ORIGINS=https://your-domain.com
+```
+
+После запуска:
+
+- Frontend: `https://your-domain.com`
+- Backend API: `https://your-domain.com/api`
+- Swagger: `https://your-domain.com/docs`
+
+Остановить production-контейнеры:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env down
+```
+
+Остановить и удалить volumes, включая SQLite-базу:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env down -v
+```
+
+SQLite хранится в Docker volume `backend-data` внутри контейнера по пути `/app/data/app.db`.
 
 ## Локальный запуск Backend
 
