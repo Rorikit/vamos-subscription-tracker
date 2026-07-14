@@ -22,5 +22,13 @@ echo "Deploying $current_commit -> $remote_commit"
 git reset --hard "$remote_commit"
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
+
+if [ -f "$APP_DIR/deploy/vamos-backup.service" ] && [ -f "$APP_DIR/deploy/vamos-backup.timer" ]; then
+  cp "$APP_DIR/deploy/vamos-backup.service" /etc/systemd/system/vamos-backup.service
+  cp "$APP_DIR/deploy/vamos-backup.timer" /etc/systemd/system/vamos-backup.timer
+  systemctl daemon-reload
+  systemctl enable --now vamos-backup.timer
+fi
+
 docker image prune -f
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
