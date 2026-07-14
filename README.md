@@ -167,6 +167,40 @@ journalctl -u vamos-auto-deploy.service -n 100 --no-pager
 systemctl disable --now vamos-auto-deploy.timer
 ```
 
+## Backup SQLite на сервере
+
+Production-сервер может делать ежедневный backup SQLite через systemd timer.
+Backup создается online-методом SQLite, сжимается в gzip и хранится в `/opt/vamos-subscription-tracker/backups`.
+По умолчанию хранятся backup-файлы за последние 14 дней.
+
+Установить timer на сервере:
+
+```bash
+cd /opt/vamos-subscription-tracker
+git pull --ff-only
+sudo bash deploy/install-backup-timer.sh
+```
+
+Проверить timer и последний запуск:
+
+```bash
+systemctl status vamos-backup.timer
+journalctl -u vamos-backup.service -n 100 --no-pager
+ls -lh /opt/vamos-subscription-tracker/backups
+```
+
+Запустить backup вручную:
+
+```bash
+sudo systemctl start vamos-backup.service
+```
+
+Отключить backup:
+
+```bash
+sudo systemctl disable --now vamos-backup.timer
+```
+
 ## Локальный запуск Backend
 
 ```powershell

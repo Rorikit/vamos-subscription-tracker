@@ -1,0 +1,14 @@
+[Unit]
+Description=Vamos Subscription Tracker SQLite backup
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/vamos-subscription-tracker
+Environment=APP_DIR=/opt/vamos-subscription-tracker
+Environment=BACKUP_DIR=/opt/vamos-subscription-tracker/backups
+Environment=RETENTION_DAYS=14
+Environment=COMPOSE_FILE=docker-compose.prod.yml
+Environment=ENV_FILE=.env
+ExecStart=/usr/bin/env bash /opt/vamos-subscription-tracker/deploy/backup-sqlite.sh
