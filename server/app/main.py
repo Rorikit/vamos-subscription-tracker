@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
+from app.models import Membership, MembershipType, Participant, Payment, Teacher, Visit
 from app.routers import auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, get_current_operator
@@ -47,6 +48,45 @@ def should_seed_demo_data() -> bool:
     return os.getenv("SEED_DEMO_DATA", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def remove_demo_seed_data(db) -> None:
+    demo_participant_phones = {
+        "+7 900 111-22-33",
+        "+7 900 222-33-44",
+        "+7 900 333-44-55",
+        "+7 900 444-55-66",
+        "+7 900 555-66-77",
+    }
+    demo_teacher_phones = {
+        "+7 901 100-10-10",
+        "+7 901 200-20-20",
+        "+7 901 300-30-30",
+    }
+    demo_type_names = {"Старт 4", "База 8", "Интенсив 12"}
+
+    participant_phones = {phone for (phone,) in db.query(Participant.phone).all()}
+    teacher_phones = {phone for (phone,) in db.query(Teacher.phone).all()}
+    type_names = {name for (name,) in db.query(MembershipType.name).all()}
+    has_only_demo_data = (
+        db.query(Participant).count() == len(demo_participant_phones)
+        and db.query(Teacher).count() == len(demo_teacher_phones)
+        and db.query(MembershipType).count() == len(demo_type_names)
+        and participant_phones == demo_participant_phones
+        and teacher_phones == demo_teacher_phones
+        and type_names == demo_type_names
+    )
+
+    if not has_only_demo_data:
+        return
+
+    db.query(Visit).delete()
+    db.query(Payment).delete()
+    db.query(Membership).delete()
+    db.query(Participant).delete()
+    db.query(MembershipType).delete()
+    db.query(Teacher).delete()
+    db.commit()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
@@ -56,6 +96,8 @@ def on_startup() -> None:
         if should_seed_demo_data():
             seed_data(db)
             ensure_teacher_seed(db)
+        else:
+            remove_demo_seed_data(db)
         backfill_visit_financials(db)
         ensure_default_operator(db)
     finally:
