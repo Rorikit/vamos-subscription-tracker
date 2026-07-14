@@ -8,6 +8,7 @@ services:
       DATABASE_URL: sqlite:///./data/app.db
       AUTH_SECRET: ${AUTH_SECRET:-vamos-local-development-secret}
       AUTH_TOKEN_TTL_HOURS: ${AUTH_TOKEN_TTL_HOURS:-24}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       OPERATOR_USERNAME: ${OPERATOR_USERNAME:-operator}
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-vamos123}
       OPERATOR_FULL_NAME: ${OPERATOR_FULL_NAME:-Оператор Vamos}

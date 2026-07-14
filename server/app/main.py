@@ -43,14 +43,19 @@ app.include_router(operators.router, dependencies=protected)
 app.include_router(finance.router, dependencies=protected)
 
 
+def should_seed_demo_data() -> bool:
+    return os.getenv("SEED_DEMO_DATA", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         migrate_local_sqlite(db)
-        seed_data(db)
-        ensure_teacher_seed(db)
+        if should_seed_demo_data():
+            seed_data(db)
+            ensure_teacher_seed(db)
         backfill_visit_financials(db)
         ensure_default_operator(db)
     finally:

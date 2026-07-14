@@ -120,6 +120,7 @@ DOMAIN=your-domain.com
 AUTH_SECRET=long-random-secret
 OPERATOR_PASSWORD=strong-password
 CORS_ORIGINS=https://your-domain.com
+SEED_DEMO_DATA=false
 ```
 
 После запуска:
