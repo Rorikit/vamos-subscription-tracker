@@ -3,6 +3,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { AppLayout } from "../layout/AppLayout";
 import { DashboardPage } from "../../pages/dashboard/DashboardPage";
+import { AuditLogsPage } from "../../pages/audit-logs/AuditLogsPage";
 import { FinancePage } from "../../pages/finance/FinancePage";
 import { LoginPage } from "../../pages/login/LoginPage";
 import { MembershipsPage } from "../../pages/memberships/MembershipsPage";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "participants/:id", element: <ParticipantCardPage /> },
       { path: "memberships", element: <MembershipsPage /> },
       { path: "finance", element: <FinancePage /> },
+      { path: "audit-logs", element: <AuditLogsPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },

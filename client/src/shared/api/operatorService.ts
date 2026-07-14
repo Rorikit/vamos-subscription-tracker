@@ -5,6 +5,7 @@ export type OperatorPayload = {
   username: string;
   full_name: string;
   password?: string;
+  role: "admin" | "operator" | "finance";
   is_active: boolean;
 };
 

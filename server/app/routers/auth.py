@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.operator import Operator
 from app.schemas.auth import LoginRequest, OperatorRead, TokenResponse
+from app.services.audit import log_action
 from app.services.auth import authenticate_operator, create_access_token, get_current_operator
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -14,6 +15,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     operator = authenticate_operator(db, payload.username, payload.password)
     if not operator:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
+    log_action(db, operator, "operator_login", "operator", operator.id, operator.full_name)
     return TokenResponse(access_token=create_access_token(operator), operator=operator)
 
 

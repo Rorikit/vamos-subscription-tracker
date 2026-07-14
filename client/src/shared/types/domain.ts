@@ -122,3 +122,16 @@ export type TeacherEarning = {
   last_visit_date: string | null;
   visits: TeacherEarningVisit[];
 };
+
+export type AuditLog = {
+  id: number;
+  operator_id: number | null;
+  operator_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: number | null;
+  entity_label: string | null;
+  before_json: string | null;
+  after_json: string | null;
+  created_at: string;
+};

@@ -14,6 +14,7 @@ def get_teacher_earnings(
     date_from: date | None = None,
     date_to: date | None = None,
     teacher_id: int | None = None,
+    membership_type_id: int | None = None,
     include_cancelled: bool = False,
 ) -> list[dict]:
     teachers_query = db.query(Teacher).order_by(Teacher.full_name)
@@ -35,6 +36,8 @@ def get_teacher_earnings(
         query = query.filter(Visit.visit_date <= date_to)
     if teacher_id:
         query = query.filter(Visit.teacher_id == teacher_id)
+    if membership_type_id:
+        query = query.join(Membership, Visit.membership_id == Membership.id).filter(Membership.membership_type_id == membership_type_id)
     if not include_cancelled:
         query = query.filter(Visit.is_cancelled.is_(False))
 
@@ -129,6 +132,8 @@ def get_summary(
     date_from: date | None = None,
     date_to: date | None = None,
     teacher_id: int | None = None,
+    membership_type_id: int | None = None,
+    payment_method: str | None = None,
 ) -> dict:
     teacher_membership_ids: list[int] | None = None
     if teacher_id:
@@ -149,6 +154,8 @@ def get_summary(
         memberships_query = memberships_query.filter(Membership.start_date <= date_to)
     if teacher_membership_ids is not None:
         memberships_query = memberships_query.filter(Membership.id.in_(teacher_membership_ids))
+    if membership_type_id:
+        memberships_query = memberships_query.filter(Membership.membership_type_id == membership_type_id)
     memberships_sold_total = Decimal(memberships_query.scalar() or 0)
 
     payments_query = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.is_cancelled.is_(False))
@@ -158,6 +165,10 @@ def get_summary(
         payments_query = payments_query.filter(Payment.payment_date <= date_to)
     if teacher_membership_ids is not None:
         payments_query = payments_query.filter(Payment.membership_id.in_(teacher_membership_ids))
+    if membership_type_id:
+        payments_query = payments_query.join(Membership, Payment.membership_id == Membership.id).filter(Membership.membership_type_id == membership_type_id)
+    if payment_method:
+        payments_query = payments_query.filter(Payment.payment_method == payment_method)
     payments_received_total = Decimal(payments_query.scalar() or 0)
 
     visit_query = db.query(Visit).filter(Visit.is_cancelled.is_(False))
@@ -167,6 +178,8 @@ def get_summary(
         visit_query = visit_query.filter(Visit.visit_date <= date_to)
     if teacher_id:
         visit_query = visit_query.filter(Visit.teacher_id == teacher_id)
+    if membership_type_id:
+        visit_query = visit_query.join(Membership, Visit.membership_id == Membership.id).filter(Membership.membership_type_id == membership_type_id)
     visits = visit_query.options(joinedload(Visit.teacher), joinedload(Visit.membership)).all()
     valid_visits = []
     for visit in visits:

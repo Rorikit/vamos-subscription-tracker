@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Participant
+from app.models import Operator, Participant
 from app.schemas.participant import ParticipantCreate, ParticipantListItem, ParticipantRead, ParticipantUpdate
+from app.services.audit import log_action, snapshot
+from app.services.auth import require_operator_access
 from app.services.memberships import get_active_membership
 
 router = APIRouter(prefix="/participants", tags=["participants"])
@@ -46,22 +48,25 @@ def get_participant(participant_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ParticipantRead)
-def create_participant(payload: ParticipantCreate, db: Session = Depends(get_db)):
+def create_participant(payload: ParticipantCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     participant = Participant(**payload.model_dump())
     db.add(participant)
     db.commit()
     db.refresh(participant)
+    log_action(db, operator, "participant_created", "participant", participant.id, participant.full_name, after=snapshot(participant, ["full_name", "phone", "comment", "is_active"]))
     return participant
 
 
 @router.patch("/{participant_id}", response_model=ParticipantRead)
-def update_participant(participant_id: int, payload: ParticipantUpdate, db: Session = Depends(get_db)):
+def update_participant(participant_id: int, payload: ParticipantUpdate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     participant = db.get(Participant, participant_id)
     if not participant:
         raise HTTPException(status_code=404, detail="Участник не найден")
+    before = snapshot(participant, ["full_name", "phone", "comment", "is_active"])
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(participant, key, value)
     db.add(participant)
     db.commit()
     db.refresh(participant)
+    log_action(db, operator, "participant_updated", "participant", participant.id, participant.full_name, before=before, after=snapshot(participant, ["full_name", "phone", "comment", "is_active"]))
     return participant

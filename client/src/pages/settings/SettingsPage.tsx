@@ -38,6 +38,7 @@ export function SettingsPage() {
             <tr>
               <th className="th">Имя</th>
               <th className="th">Логин</th>
+              <th className="th">Роль</th>
               <th className="th">Статус</th>
               <th className="th">Создан</th>
               <th className="th">Действия</th>
@@ -48,6 +49,7 @@ export function SettingsPage() {
               <tr key={operator.id}>
                 <td className="td font-semibold text-ink">{operator.full_name}</td>
                 <td className="td">{operator.username}</td>
+                <td className="td">{roleLabel(operator.role)}</td>
                 <td className="td">{operator.is_active ? "Активен" : "Отключен"}</td>
                 <td className="td">{new Intl.DateTimeFormat("ru-RU").format(new Date(operator.created_at))}</td>
                 <td className="td">
@@ -157,6 +159,7 @@ function OperatorForm({ operator, onDone }: { operator?: Operator; onDone: () =>
   const [fullName, setFullName] = useState(operator?.full_name ?? "");
   const [username, setUsername] = useState(operator?.username ?? "");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<Operator["role"]>(operator?.role ?? "operator");
   const [isActive, setIsActive] = useState(operator?.is_active ?? true);
   const mutation = useMutation({
     mutationFn: () => {
@@ -164,6 +167,7 @@ function OperatorForm({ operator, onDone }: { operator?: Operator; onDone: () =>
         full_name: fullName,
         username,
         password: password || undefined,
+        role,
         is_active: isActive,
       };
       return operator ? operatorService.update(operator.id, payload) : operatorService.create({ ...payload, password });
@@ -184,6 +188,14 @@ function OperatorForm({ operator, onDone }: { operator?: Operator; onDone: () =>
     <form className="space-y-4" onSubmit={submit}>
       <Field label="Имя" value={fullName} onChange={setFullName} required />
       <Field label="Логин" value={username} onChange={setUsername} required />
+      <label className="block text-sm font-medium text-slate-700">
+        Роль
+        <select className="input mt-1" value={role} onChange={(event) => setRole(event.target.value as Operator["role"])}>
+          <option value="admin">Администратор</option>
+          <option value="operator">Оператор</option>
+          <option value="finance">Финансист</option>
+        </select>
+      </label>
       <Field label={operator ? "Новый пароль" : "Пароль"} value={password} onChange={setPassword} type="password" required={!operator} />
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
         <input checked={isActive} type="checkbox" onChange={(event) => setIsActive(event.target.checked)} />
@@ -216,4 +228,13 @@ function Field({
       <input className="input mt-1" value={value} type={type} onChange={(event) => onChange(event.target.value)} required={required} />
     </label>
   );
+}
+
+function roleLabel(role: Operator["role"]) {
+  const labels: Record<Operator["role"], string> = {
+    admin: "Администратор",
+    operator: "Оператор",
+    finance: "Финансист",
+  };
+  return labels[role];
 }

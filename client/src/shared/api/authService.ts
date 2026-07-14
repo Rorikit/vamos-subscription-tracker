@@ -4,6 +4,7 @@ export type Operator = {
   id: number;
   username: string;
   full_name: string;
+  role: "admin" | "operator" | "finance";
   is_active: boolean;
   created_at: string;
   updated_at: string;

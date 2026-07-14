@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 
 import { financeService } from "../../shared/api/financeService";
+import { membershipTypeService } from "../../shared/api/membershipTypeService";
 import { teacherService } from "../../shared/api/teacherService";
 import { toCurrency, toDate } from "../../shared/api/client";
 import { StatCard } from "../../shared/ui/StatCard";
@@ -12,11 +13,16 @@ export function FinancePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [membershipTypeId, setMembershipTypeId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [dateMode, setDateMode] = useState("mixed");
   const [expandedTeacherId, setExpandedTeacherId] = useState<number | null>(null);
 
-  const filters = { date_from: dateFrom, date_to: dateTo, teacher_id: teacherId };
+  const filters = { date_from: dateFrom, date_to: dateTo, teacher_id: teacherId, membership_type_id: membershipTypeId, payment_method: paymentMethod };
   const summary = useQuery({ queryKey: ["finance-summary", filters], queryFn: () => financeService.summary(filters) });
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
+  const membershipTypes = useQuery({ queryKey: ["membership-types"], queryFn: membershipTypeService.list });
+  const payments = useQuery({ queryKey: ["finance-payments", filters], queryFn: () => financeService.payments(filters) });
   const earnings = useQuery({
     queryKey: ["teacher-earnings", filters],
     queryFn: () => financeService.teacherEarnings({ ...filters, include_cancelled: true }),
@@ -34,7 +40,7 @@ export function FinancePage() {
       </div>
 
       <section className="panel p-5">
-        <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-4">
+        <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-end gap-4">
           <label className="block text-sm font-medium text-slate-700">
             Период с
             <input className="input mt-1" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
@@ -54,7 +60,34 @@ export function FinancePage() {
               ))}
             </select>
           </label>
-          <button className="btn-secondary" onClick={() => { setDateFrom(""); setDateTo(""); setTeacherId(""); }}>
+          <label className="block text-sm font-medium text-slate-700">
+            Тип абонемента
+            <select className="input mt-1" value={membershipTypeId} onChange={(event) => setMembershipTypeId(event.target.value)}>
+              <option value="">Все типы</option>
+              {membershipTypes.data?.map((type) => (
+                <option key={type.id} value={type.id}>{type.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Способ оплаты
+            <select className="input mt-1" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+              <option value="">Все способы</option>
+              <option value="cash">Наличные</option>
+              <option value="card">Карта</option>
+              <option value="transfer">Перевод</option>
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Дата отчета
+            <select className="input mt-1" value={dateMode} onChange={(event) => setDateMode(event.target.value)}>
+              <option value="mixed">По смыслу операции</option>
+              <option value="payment">По дате оплаты</option>
+              <option value="visit">По дате занятия</option>
+              <option value="sale">По дате продажи</option>
+            </select>
+          </label>
+          <button className="btn-secondary" onClick={() => { setDateFrom(""); setDateTo(""); setTeacherId(""); setMembershipTypeId(""); setPaymentMethod(""); setDateMode("mixed"); }}>
             <RefreshCw size={17} />
             Сбросить
           </button>
@@ -71,15 +104,16 @@ export function FinancePage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         <StatCard label="Продажи абонементов" value={toCurrency(summary.data?.memberships_sold_total ?? 0)} hint="По дате начала абонемента" />
         <StatCard label="Получено оплат" value={toCurrency(summary.data?.payments_received_total ?? 0)} hint="Неотмененные платежи" />
+        <StatCard label="Проведено занятий" value={summary.data?.completed_visits_count ?? 0} />
         <StatCard label="Стоимость проведенных занятий" value={toCurrency(summary.data?.completed_lessons_value ?? 0)} hint="Только проведенные занятия" />
+        <StatCard label="Выплаты преподавателям" value={toCurrency(summary.data?.teacher_earnings_total ?? 0)} />
         <StatCard label="Доход школы" value={toCurrency(summary.data?.school_earnings_total ?? 0)} hint="После выплат преподавателям" />
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <StatCard label="Проведено занятий" value={summary.data?.completed_visits_count ?? 0} />
+      <div className="grid grid-cols-3 gap-4">
         <StatCard label="Средняя цена занятия" value={toCurrency(summary.data?.average_lesson_price ?? 0)} />
         <StatCard label="Средняя выплата преподавателю" value={toCurrency(summary.data?.average_teacher_earning ?? 0)} />
         <StatCard label="Активных преподавателей" value={summary.data?.active_teachers_count ?? 0} />
@@ -95,6 +129,37 @@ export function FinancePage() {
             expandedTeacherId={expandedTeacherId}
             onToggle={(id) => setExpandedTeacherId(expandedTeacherId === id ? null : id)}
           />
+        ) : null}
+      </section>
+
+      <section className="panel overflow-hidden">
+        <SectionTitle title="Оплаты" />
+        {!payments.isLoading && payments.data?.length === 0 ? <EmptyBlock text="Пока нет финансовых операций за выбранный период. Добавьте участников, абонементы и оплаты, чтобы увидеть отчет." /> : null}
+        {payments.data?.length ? (
+          <table className="w-full">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="th">Дата</th>
+                <th className="th">Участник</th>
+                <th className="th">Абонемент</th>
+                <th className="th">Сумма</th>
+                <th className="th">Способ</th>
+                <th className="th">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.data.map((payment) => (
+                <tr key={payment.id} className={payment.is_cancelled ? "opacity-55" : ""}>
+                  <td className="td">{toDate(payment.payment_date)}</td>
+                  <td className="td">{payment.participant?.full_name ?? "—"}</td>
+                  <td className="td">#{payment.membership_id}</td>
+                  <td className="td font-semibold text-ink">{toCurrency(payment.amount)}</td>
+                  <td className="td">{paymentMethodLabel(payment.payment_method)}</td>
+                  <td className="td">{payment.is_cancelled ? "Отменена" : "Активна"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : null}
       </section>
     </div>
@@ -242,4 +307,13 @@ function initials(name: string) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+}
+
+function paymentMethodLabel(method: string) {
+  const labels: Record<string, string> = {
+    cash: "Наличные",
+    card: "Карта",
+    transfer: "Перевод",
+  };
+  return labels[method] ?? method;
 }

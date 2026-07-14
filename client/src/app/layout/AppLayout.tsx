@@ -1,18 +1,21 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { CalendarCheck, CreditCard, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
+import { CalendarCheck, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
 
 import { useAuth } from "../auth/AuthProvider";
 
 const navItems = [
-  { to: "/dashboard", label: "Панель", icon: LayoutDashboard },
-  { to: "/participants", label: "Участники", icon: Users },
-  { to: "/memberships", label: "Абонементы", icon: Ticket },
-  { to: "/finance", label: "Финансы", icon: CreditCard },
-  { to: "/settings", label: "Настройки", icon: Settings },
+  { to: "/dashboard", label: "Панель", icon: LayoutDashboard, roles: ["admin", "operator", "finance"] },
+  { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },
+  { to: "/memberships", label: "Абонементы", icon: Ticket, roles: ["admin", "operator"] },
+  { to: "/finance", label: "Финансы", icon: CreditCard, roles: ["admin", "finance"] },
+  { to: "/audit-logs", label: "Журнал", icon: ClipboardList, roles: ["admin"] },
+  { to: "/settings", label: "Настройки", icon: Settings, roles: ["admin"] },
 ];
 
 export function AppLayout() {
   const auth = useAuth();
+  const role = auth.operator?.role ?? "operator";
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -27,7 +30,7 @@ export function AppLayout() {
           </div>
         </div>
         <nav className="space-y-1 p-3">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -51,7 +54,7 @@ export function AppLayout() {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-sm font-semibold text-ink">{auth.operator?.full_name ?? "Оператор"}</div>
-              <div className="text-xs text-slate-500">{auth.operator?.username}</div>
+              <div className="text-xs text-slate-500">{auth.operator?.username} · {roleLabel(role)}</div>
             </div>
             <button className="btn-secondary h-9 px-3" onClick={auth.logout} title="Выйти">
               <LogOut size={17} />
@@ -65,4 +68,13 @@ export function AppLayout() {
       </main>
     </div>
   );
+}
+
+function roleLabel(role: string) {
+  const labels: Record<string, string> = {
+    admin: "Администратор",
+    operator: "Оператор",
+    finance: "Финансист",
+  };
+  return labels[role] ?? role;
 }

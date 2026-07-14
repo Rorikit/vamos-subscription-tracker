@@ -13,7 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.operator import Operator
+from app.models.operator import Operator, OperatorRole
 
 PASSWORD_ITERATIONS = 260_000
 TOKEN_TTL_HOURS = int(os.getenv("AUTH_TOKEN_TTL_HOURS", "24"))
@@ -73,13 +73,31 @@ def get_current_operator(
     return operator
 
 
+def require_admin(operator: Operator = Depends(get_current_operator)) -> Operator:
+    if operator.role != OperatorRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ только для администратора")
+    return operator
+
+
+def require_finance_access(operator: Operator = Depends(get_current_operator)) -> Operator:
+    if operator.role not in {OperatorRole.ADMIN, OperatorRole.FINANCE}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав для финансов")
+    return operator
+
+
+def require_operator_access(operator: Operator = Depends(get_current_operator)) -> Operator:
+    if operator.role not in {OperatorRole.ADMIN, OperatorRole.OPERATOR}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав для операции")
+    return operator
+
+
 def ensure_default_operator(db: Session) -> None:
     if db.query(Operator).first():
         return
     username = os.getenv("OPERATOR_USERNAME", "operator")
     password = os.getenv("OPERATOR_PASSWORD", "vamos123")
     full_name = os.getenv("OPERATOR_FULL_NAME", "Оператор Vamos")
-    db.add(Operator(username=username, full_name=full_name, password_hash=hash_password(password)))
+    db.add(Operator(username=username, full_name=full_name, role=OperatorRole.ADMIN, password_hash=hash_password(password)))
     db.commit()
 
 

@@ -7,7 +7,7 @@ from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
 from app.models import Membership, MembershipType, Participant, Payment, Teacher, Visit
-from app.routers import auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
+from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, get_current_operator
 from app.services.finance import ensure_teacher_seed
@@ -34,6 +34,7 @@ app.add_middleware(
 protected = [Depends(get_current_operator)]
 
 app.include_router(auth.router)
+app.include_router(audit_logs.router, dependencies=protected)
 app.include_router(participants.router, dependencies=protected)
 app.include_router(membership_types.router, dependencies=protected)
 app.include_router(memberships.router, dependencies=protected)
@@ -118,6 +119,13 @@ def migrate_local_sqlite(db) -> None:
         if "teacher_share_percent" not in teacher_columns:
             db.execute(text("alter table teachers add column teacher_share_percent numeric(5, 2) default 50"))
             db.execute(text("update teachers set teacher_share_percent = 50 where teacher_share_percent is null"))
+            db.commit()
+
+    if "operators" in table_names:
+        operator_columns = {column["name"] for column in inspector.get_columns("operators")}
+        if "role" not in operator_columns:
+            db.execute(text("alter table operators add column role varchar(8) default 'ADMIN'"))
+            db.execute(text("update operators set role = 'ADMIN' where role is null"))
             db.commit()
 
     if "visits" not in table_names:
