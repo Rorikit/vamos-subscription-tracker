@@ -46,7 +46,6 @@ export function AppLayout() {
       <main className="ml-64 flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-8 backdrop-blur">
           <div>
-            <div className="text-sm font-medium text-slate-500">Локальный учет абонементов</div>
             <div className="text-lg font-bold text-ink">Vamos Subscription Tracker</div>
           </div>
           <div className="flex items-center gap-3">
