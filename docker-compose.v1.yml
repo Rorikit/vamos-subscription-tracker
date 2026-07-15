@@ -1,5 +1,5 @@
 services:
-  backend:
+  v1-backend:
     build:
       context: ./server
     environment:
@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-  frontend:
+  v1-frontend:
     build:
       context: ./client
       dockerfile: Dockerfile.prod
@@ -28,7 +28,7 @@ services:
         VITE_API_URL: ${VITE_API_URL:-/v1/api}
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/v1/}
     depends_on:
-      - backend
+      - v1-backend
     networks:
       prod-proxy:
         aliases:
