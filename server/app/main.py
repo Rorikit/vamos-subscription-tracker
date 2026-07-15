@@ -129,6 +129,21 @@ def migrate_local_sqlite(db) -> None:
             db.execute(text("update operators set role = 'ADMIN' where role is null"))
             db.commit()
 
+    if "memberships" in table_names:
+        membership_columns = {column["name"] for column in inspector.get_columns("memberships")}
+        if "teacher_lesson_rate" not in membership_columns:
+            db.execute(text("alter table memberships add column teacher_lesson_rate numeric(10, 2) default 0"))
+            db.execute(
+                text(
+                    """
+                    update memberships
+                    set teacher_lesson_rate = round((price / total_lessons) * 0.5, 2)
+                    where total_lessons > 0 and (teacher_lesson_rate is null or teacher_lesson_rate = 0)
+                    """
+                )
+            )
+            db.commit()
+
     if "visits" not in table_names:
         return
 
@@ -145,6 +160,7 @@ def migrate_local_sqlite(db) -> None:
     visit_columns = {column["name"] for column in inspector.get_columns("visits")}
     visit_finance_columns = {
         "lesson_price": "numeric(10, 2)",
+        "teacher_lesson_rate": "numeric(10, 2)",
         "teacher_share_percent": "numeric(5, 2)",
         "teacher_earning": "numeric(10, 2)",
         "school_earning": "numeric(10, 2)",
@@ -152,6 +168,8 @@ def migrate_local_sqlite(db) -> None:
     for column_name, column_type in visit_finance_columns.items():
         if column_name not in visit_columns:
             db.execute(text(f"alter table visits add column {column_name} {column_type}"))
+    db.commit()
+    db.execute(text("update visits set teacher_lesson_rate = teacher_earning where teacher_lesson_rate is null and teacher_earning is not null"))
     db.commit()
 
     backfill_visit_financials(db)

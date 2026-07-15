@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
-from app.services.memberships import cancel_visit, write_off_visit
+from app.services.memberships import cancel_visit, create_membership, write_off_visit
 
 
 class FinanceSnapshotTest(unittest.TestCase):
@@ -20,7 +20,7 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.db = self.Session()
 
         participant = Participant(full_name="Алексей Иванов", phone="+7 900 000-00-00")
-        teacher = Teacher(full_name="Ирина Петрова", teacher_share_percent=Decimal("50"))
+        teacher = Teacher(full_name="Ирина Петрова")
         membership_type = MembershipType(name="8 занятий", lesson_count=8, price=Decimal("14400"), validity_days=30)
         self.db.add_all([participant, teacher, membership_type])
         self.db.commit()
@@ -31,6 +31,7 @@ class FinanceSnapshotTest(unittest.TestCase):
             total_lessons=8,
             remaining_lessons=8,
             price=Decimal("14400"),
+            teacher_lesson_rate=Decimal("900"),
             start_date=date.today(),
             end_date=date.today() + timedelta(days=30),
             status=MembershipStatus.ACTIVE,
@@ -49,17 +50,19 @@ class FinanceSnapshotTest(unittest.TestCase):
     def test_visit_financial_snapshot_and_return(self) -> None:
         first = write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         self.assertEqual(first.lesson_price, Decimal("1800.00"))
+        self.assertEqual(first.teacher_lesson_rate, Decimal("900.00"))
         self.assertEqual(first.teacher_earning, Decimal("900.00"))
         self.assertEqual(first.school_earning, Decimal("900.00"))
 
-        teacher = self.db.get(Teacher, self.teacher_id)
-        teacher.teacher_share_percent = Decimal("60")
-        self.db.add(teacher)
+        membership = self.db.get(Membership, self.membership_id)
+        membership.teacher_lesson_rate = Decimal("1080")
+        self.db.add(membership)
         self.db.commit()
         self.db.refresh(first)
         self.assertEqual(first.teacher_earning, Decimal("900.00"))
 
         second = write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        self.assertEqual(second.teacher_lesson_rate, Decimal("1080.00"))
         self.assertEqual(second.teacher_share_percent, Decimal("60.00"))
         self.assertEqual(second.teacher_earning, Decimal("1080.00"))
         self.assertEqual(second.school_earning, Decimal("720.00"))
@@ -88,7 +91,7 @@ class FinanceSnapshotTest(unittest.TestCase):
 
     def test_teacher_filter_limits_sales_and_payments_to_teacher_memberships(self) -> None:
         second_participant = Participant(full_name="Мария Соколова")
-        second_teacher = Teacher(full_name="Ольга Сергеева", teacher_share_percent=Decimal("50"))
+        second_teacher = Teacher(full_name="Ольга Сергеева")
         self.db.add_all([second_participant, second_teacher])
         self.db.commit()
 
@@ -98,6 +101,7 @@ class FinanceSnapshotTest(unittest.TestCase):
             total_lessons=8,
             remaining_lessons=8,
             price=Decimal("8000"),
+            teacher_lesson_rate=Decimal("500"),
             start_date=date.today(),
             end_date=date.today() + timedelta(days=30),
             status=MembershipStatus.ACTIVE,
@@ -126,6 +130,10 @@ class FinanceSnapshotTest(unittest.TestCase):
 
         with self.assertRaises(HTTPException):
             write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+
+    def test_membership_teacher_rate_cannot_exceed_lesson_price(self) -> None:
+        with self.assertRaises(HTTPException):
+            create_membership(self.db, self.participant_id, self.db.get(Membership, self.membership_id).membership_type_id, Decimal("2000"))
 
 
 if __name__ == "__main__":

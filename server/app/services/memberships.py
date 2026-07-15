@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher, Visit
-from app.services.lesson_finance import calculate_visit_financials
+from app.services.lesson_finance import calculate_visit_financials, quantize_money
 
 
 def paid_amount(db: Session, membership_id: int) -> Decimal:
@@ -61,21 +61,30 @@ def get_active_membership(db: Session, participant_id: int) -> Membership | None
     return None
 
 
-def create_membership(db: Session, participant_id: int, membership_type_id: int) -> Membership:
+def create_membership(db: Session, participant_id: int, membership_type_id: int, teacher_lesson_rate: Decimal | None = None) -> Membership:
     participant = db.get(Participant, participant_id)
     membership_type = db.get(MembershipType, membership_type_id)
     if not participant:
         raise HTTPException(status_code=404, detail="Участник не найден")
     if not membership_type or not membership_type.is_active:
         raise HTTPException(status_code=404, detail="Тип абонемента не найден или отключен")
+    if membership_type.lesson_count <= 0:
+        raise HTTPException(status_code=400, detail="В типе абонемента некорректное количество занятий")
 
     start = date.today()
+    lesson_price = quantize_money(Decimal(membership_type.price) / Decimal(membership_type.lesson_count))
+    rate = quantize_money(Decimal(teacher_lesson_rate) if teacher_lesson_rate is not None else lesson_price * Decimal("0.5"))
+    if rate < 0:
+        raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть отрицательной")
+    if rate > lesson_price:
+        raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть больше цены занятия")
     membership = Membership(
         participant_id=participant_id,
         membership_type_id=membership_type_id,
         total_lessons=membership_type.lesson_count,
         remaining_lessons=membership_type.lesson_count,
         price=membership_type.price,
+        teacher_lesson_rate=rate,
         start_date=start,
         end_date=start + timedelta(days=membership_type.validity_days),
         status=MembershipStatus.ACTIVE,
@@ -113,13 +122,14 @@ def write_off_visit(
     if membership.remaining_lessons <= 0:
         raise HTTPException(status_code=400, detail="Занятия закончились")
 
-    financials = calculate_visit_financials(membership, teacher)
+    financials = calculate_visit_financials(membership)
     visit = Visit(
         participant_id=participant_id,
         membership_id=membership.id,
         teacher_id=teacher_id,
         visit_date=visit_date or date.today(),
         lesson_price=financials["lesson_price"],
+        teacher_lesson_rate=financials["teacher_lesson_rate"],
         teacher_share_percent=financials["teacher_share_percent"],
         teacher_earning=financials["teacher_earning"],
         school_earning=financials["school_earning"],

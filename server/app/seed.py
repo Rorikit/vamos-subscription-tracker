@@ -31,11 +31,11 @@ def seed_data(db: Session) -> None:
 
     today = date.today()
     memberships = [
-        Membership(participant_id=1, membership_type_id=2, total_lessons=8, remaining_lessons=5, price=7200, start_date=today - timedelta(days=10), end_date=today + timedelta(days=35), status=MembershipStatus.ACTIVE),
-        Membership(participant_id=2, membership_type_id=1, total_lessons=4, remaining_lessons=1, price=4000, start_date=today - timedelta(days=25), end_date=today + timedelta(days=5), status=MembershipStatus.ACTIVE),
-        Membership(participant_id=3, membership_type_id=3, total_lessons=12, remaining_lessons=0, price=9600, start_date=today - timedelta(days=50), end_date=today + timedelta(days=10), status=MembershipStatus.FINISHED),
-        Membership(participant_id=4, membership_type_id=2, total_lessons=8, remaining_lessons=8, price=7200, start_date=today - timedelta(days=60), end_date=today - timedelta(days=15), status=MembershipStatus.EXPIRED),
-        Membership(participant_id=5, membership_type_id=3, total_lessons=12, remaining_lessons=9, price=9600, start_date=today - timedelta(days=3), end_date=today + timedelta(days=57), status=MembershipStatus.ACTIVE),
+        Membership(participant_id=1, membership_type_id=2, total_lessons=8, remaining_lessons=5, price=7200, teacher_lesson_rate=450, start_date=today - timedelta(days=10), end_date=today + timedelta(days=35), status=MembershipStatus.ACTIVE),
+        Membership(participant_id=2, membership_type_id=1, total_lessons=4, remaining_lessons=1, price=4000, teacher_lesson_rate=500, start_date=today - timedelta(days=25), end_date=today + timedelta(days=5), status=MembershipStatus.ACTIVE),
+        Membership(participant_id=3, membership_type_id=3, total_lessons=12, remaining_lessons=0, price=9600, teacher_lesson_rate=400, start_date=today - timedelta(days=50), end_date=today + timedelta(days=10), status=MembershipStatus.FINISHED),
+        Membership(participant_id=4, membership_type_id=2, total_lessons=8, remaining_lessons=8, price=7200, teacher_lesson_rate=450, start_date=today - timedelta(days=60), end_date=today - timedelta(days=15), status=MembershipStatus.EXPIRED),
+        Membership(participant_id=5, membership_type_id=3, total_lessons=12, remaining_lessons=9, price=9600, teacher_lesson_rate=400, start_date=today - timedelta(days=3), end_date=today + timedelta(days=57), status=MembershipStatus.ACTIVE),
     ]
     db.add_all(memberships)
     db.commit()
@@ -61,4 +61,3 @@ def seed_data(db: Session) -> None:
         ]
     )
     db.commit()
-

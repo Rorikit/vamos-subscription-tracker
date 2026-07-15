@@ -15,7 +15,7 @@ class TeacherEarningVisit(ApiModel):
     membership_id: int
     membership_name: str
     lesson_price: Decimal
-    teacher_share_percent: Decimal
+    teacher_lesson_rate: Decimal
     teacher_earning: Decimal
     school_earning: Decimal
     is_cancelled: bool
@@ -24,7 +24,7 @@ class TeacherEarningVisit(ApiModel):
 class TeacherEarning(ApiModel):
     teacher_id: int
     teacher_name: str
-    teacher_share_percent: Decimal
+    average_teacher_lesson_rate: Decimal
     visits_count: int
     completed_lessons_value: Decimal
     teacher_earned: Decimal

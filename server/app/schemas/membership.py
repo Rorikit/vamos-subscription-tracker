@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.membership import MembershipStatus
 from app.schemas.common import ApiModel, MembershipTypeSnapshot, ParticipantSnapshot
@@ -10,6 +10,7 @@ from app.schemas.common import ApiModel, MembershipTypeSnapshot, ParticipantSnap
 class MembershipCreate(BaseModel):
     participant_id: int
     membership_type_id: int
+    teacher_lesson_rate: Decimal = Field(ge=0)
 
 
 class MembershipRead(ApiModel):
@@ -19,6 +20,7 @@ class MembershipRead(ApiModel):
     total_lessons: int
     remaining_lessons: int
     price: Decimal
+    teacher_lesson_rate: Decimal
     start_date: date
     end_date: date
     status: MembershipStatus

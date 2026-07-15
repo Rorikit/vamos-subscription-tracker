@@ -29,7 +29,7 @@ def create_teacher(payload: TeacherCreate, db: Session = Depends(get_db), operat
     db.add(teacher)
     db.commit()
     db.refresh(teacher)
-    log_action(db, operator, "teacher_created", "teacher", teacher.id, teacher.full_name, after=snapshot(teacher, ["full_name", "phone", "teacher_share_percent", "is_active"]))
+    log_action(db, operator, "teacher_created", "teacher", teacher.id, teacher.full_name, after=snapshot(teacher, ["full_name", "phone", "is_active"]))
     return teacher
 
 
@@ -38,11 +38,11 @@ def update_teacher(teacher_id: int, payload: TeacherUpdate, db: Session = Depend
     teacher = db.get(Teacher, teacher_id)
     if not teacher:
         raise HTTPException(status_code=404, detail="Преподаватель не найден")
-    before = snapshot(teacher, ["full_name", "phone", "comment", "teacher_share_percent", "is_active"])
+    before = snapshot(teacher, ["full_name", "phone", "comment", "is_active"])
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(teacher, key, value)
     db.add(teacher)
     db.commit()
     db.refresh(teacher)
-    log_action(db, operator, "teacher_updated", "teacher", teacher.id, teacher.full_name, before=before, after=snapshot(teacher, ["full_name", "phone", "comment", "teacher_share_percent", "is_active"]))
+    log_action(db, operator, "teacher_updated", "teacher", teacher.id, teacher.full_name, before=before, after=snapshot(teacher, ["full_name", "phone", "comment", "is_active"]))
     return teacher

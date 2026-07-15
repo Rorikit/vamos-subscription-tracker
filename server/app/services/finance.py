@@ -62,7 +62,7 @@ def get_teacher_earnings(
         teacher.id: {
             "teacher_id": teacher.id,
             "teacher_name": teacher.full_name,
-            "teacher_share_percent": quantize_percent(Decimal(teacher.teacher_share_percent)),
+            "average_teacher_lesson_rate": Decimal("0"),
             "visits_count": 0,
             "completed_lessons_value": Decimal("0"),
             "teacher_earned": Decimal("0"),
@@ -81,6 +81,7 @@ def get_teacher_earnings(
             continue
         item = earnings[visit.teacher_id]
         lesson_price = quantize_money(Decimal(visit.lesson_price or 0))
+        teacher_lesson_rate = quantize_money(Decimal(visit.teacher_lesson_rate or visit.teacher_earning or 0))
         teacher_earning = quantize_money(Decimal(visit.teacher_earning or 0))
         school_earning = quantize_money(Decimal(visit.school_earning or 0))
         item["visits"].append(
@@ -92,7 +93,7 @@ def get_teacher_earnings(
                 "membership_id": visit.membership_id,
                 "membership_name": visit.membership.membership_type.name if visit.membership and visit.membership.membership_type else f"Абонемент #{visit.membership_id}",
                 "lesson_price": lesson_price,
-                "teacher_share_percent": quantize_percent(Decimal(visit.teacher_share_percent or 0)),
+                "teacher_lesson_rate": teacher_lesson_rate,
                 "teacher_earning": teacher_earning,
                 "school_earning": school_earning,
                 "is_cancelled": visit.is_cancelled,
@@ -114,6 +115,7 @@ def get_teacher_earnings(
         item["school_earned"] = quantize_money(item["school_earned"])
         item["average_lesson_price"] = quantize_money(item["completed_lessons_value"] / Decimal(visits_count)) if visits_count else Decimal("0.00")
         item["average_teacher_earning"] = quantize_money(item["teacher_earned"] / Decimal(visits_count)) if visits_count else Decimal("0.00")
+        item["average_teacher_lesson_rate"] = item["average_teacher_earning"]
         item["share_of_total_teacher_payouts"] = (
             quantize_percent(item["teacher_earned"] * Decimal("100") / total_teacher_payouts)
             if total_teacher_payouts
@@ -218,9 +220,9 @@ def ensure_teacher_seed(db: Session) -> list[Teacher]:
     if db.query(Teacher).count() == 0:
         db.add_all(
             [
-                Teacher(full_name="София Белова", phone="+7 901 100-10-10", comment="Сальса и бачата", teacher_share_percent=Decimal("50")),
-                Teacher(full_name="Марк Волков", phone="+7 901 200-20-20", comment="Групповые занятия", teacher_share_percent=Decimal("50")),
-                Teacher(full_name="Виктория Лебедева", phone="+7 901 300-30-30", comment="Индивидуальные занятия", teacher_share_percent=Decimal("50")),
+                Teacher(full_name="София Белова", phone="+7 901 100-10-10", comment="Сальса и бачата"),
+                Teacher(full_name="Марк Волков", phone="+7 901 200-20-20", comment="Групповые занятия"),
+                Teacher(full_name="Виктория Лебедева", phone="+7 901 300-30-30", comment="Индивидуальные занятия"),
             ]
         )
         db.commit()
