@@ -23,6 +23,10 @@ git reset --hard "$remote_commit"
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
+if [ "${BOOTSTRAP_V1_STAGING:-true}" = "true" ] && [ "$APP_DIR" = "/opt/vamos-subscription-tracker" ]; then
+  bash "$APP_DIR/deploy/bootstrap-v1-staging.sh"
+fi
+
 if [ -f "$APP_DIR/deploy/vamos-backup.service" ] && [ -f "$APP_DIR/deploy/vamos-backup.timer" ]; then
   cp "$APP_DIR/deploy/vamos-backup.service" /etc/systemd/system/vamos-backup.service
   cp "$APP_DIR/deploy/vamos-backup.timer" /etc/systemd/system/vamos-backup.timer
