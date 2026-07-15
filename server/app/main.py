@@ -9,7 +9,7 @@ from app.database import Base, SessionLocal, engine
 from app.models import Membership, MembershipType, Participant, Payment, Teacher, Visit
 from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
 from app.seed import seed_data
-from app.services.auth import ensure_default_operator, ensure_system_operator, get_current_operator
+from app.services.auth import ensure_default_operator, get_current_operator
 from app.services.finance import ensure_teacher_seed
 from app.services.lesson_finance import backfill_visit_financials
 
@@ -101,7 +101,6 @@ def on_startup() -> None:
             remove_demo_seed_data(db)
         backfill_visit_financials(db)
         ensure_default_operator(db)
-        ensure_system_operator(db)
     finally:
         db.close()
 

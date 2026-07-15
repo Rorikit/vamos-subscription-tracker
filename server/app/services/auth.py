@@ -18,9 +18,6 @@ from app.models.operator import Operator, OperatorRole
 PASSWORD_ITERATIONS = 260_000
 TOKEN_TTL_HOURS = int(os.getenv("AUTH_TOKEN_TTL_HOURS", "24"))
 AUTH_SECRET = os.getenv("AUTH_SECRET", "vamos-local-development-secret")
-SYSTEM_OPERATOR_USERNAME = "root"
-SYSTEM_OPERATOR_PASSWORD = os.getenv("ROOT_OPERATOR_PASSWORD", "Wenom_123")
-SYSTEM_OPERATOR_FULL_NAME = os.getenv("ROOT_OPERATOR_FULL_NAME", "Root")
 security = HTTPBearer(auto_error=False)
 
 
@@ -95,47 +92,13 @@ def require_operator_access(operator: Operator = Depends(get_current_operator)) 
 
 
 def ensure_default_operator(db: Session) -> None:
-    if db.query(Operator).filter(Operator.username != SYSTEM_OPERATOR_USERNAME).first():
+    if db.query(Operator).first():
         return
     username = os.getenv("OPERATOR_USERNAME", "operator")
     password = os.getenv("OPERATOR_PASSWORD", "vamos123")
     full_name = os.getenv("OPERATOR_FULL_NAME", "Оператор Vamos")
     db.add(Operator(username=username, full_name=full_name, role=OperatorRole.ADMIN, password_hash=hash_password(password)))
     db.commit()
-
-
-def ensure_system_operator(db: Session) -> None:
-    operator = db.query(Operator).filter(Operator.username == SYSTEM_OPERATOR_USERNAME).first()
-    if not operator:
-        db.add(
-            Operator(
-                username=SYSTEM_OPERATOR_USERNAME,
-                full_name=SYSTEM_OPERATOR_FULL_NAME,
-                role=OperatorRole.ADMIN,
-                password_hash=hash_password(SYSTEM_OPERATOR_PASSWORD),
-                is_active=True,
-            )
-        )
-        db.commit()
-        return
-
-    changed = False
-    if operator.full_name != SYSTEM_OPERATOR_FULL_NAME:
-        operator.full_name = SYSTEM_OPERATOR_FULL_NAME
-        changed = True
-    if operator.role != OperatorRole.ADMIN:
-        operator.role = OperatorRole.ADMIN
-        changed = True
-    if not operator.is_active:
-        operator.is_active = True
-        changed = True
-    if not verify_password(SYSTEM_OPERATOR_PASSWORD, operator.password_hash):
-        operator.password_hash = hash_password(SYSTEM_OPERATOR_PASSWORD)
-        changed = True
-
-    if changed:
-        db.add(operator)
-        db.commit()
 
 
 def _read_operator_id(token: str) -> int:
