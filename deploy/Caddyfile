@@ -4,11 +4,11 @@
     redir /v1 /v1/
 
     handle_path /v1/api/* {
-        reverse_proxy vamos-v1-backend:8000
+        reverse_proxy v1-backend:8000
     }
 
     handle_path /v1/* {
-        reverse_proxy vamos-v1-frontend:80
+        reverse_proxy v1-frontend:80
     }
 
     handle_path /api/* {

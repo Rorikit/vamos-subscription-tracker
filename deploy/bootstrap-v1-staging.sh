@@ -6,6 +6,7 @@ REPO_URL="${REPO_URL:-https://github.com/Rorikit/vamos-subscription-tracker.git}
 BRANCH="${BRANCH:-develop}"
 PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-http://168.222.140.16}"
 PASSWORD_FILE="${PASSWORD_FILE:-/root/vamos-v1-operator-password.txt}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vamos-v1}"
 
 if [ ! -d "$APP_DIR/.git" ]; then
   git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
