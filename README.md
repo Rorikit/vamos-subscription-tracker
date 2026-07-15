@@ -167,6 +167,46 @@ journalctl -u vamos-auto-deploy.service -n 100 --no-pager
 systemctl disable --now vamos-auto-deploy.timer
 ```
 
+## Staging по пути /v1
+
+Production остается доступен на корне сайта:
+
+```text
+http://168.222.140.16/
+```
+
+Staging-среда может работать на том же домене/IP по пути:
+
+```text
+http://168.222.140.16/v1/
+```
+
+Схема:
+
+- production: ветка `main`, compose `docker-compose.prod.yml`, база `backend-data`;
+- staging `/v1`: ветка `develop`, compose `docker-compose.v1.yml`, отдельная база `v1-backend-data`;
+- внешний порт не открывается, `/v1` проксируется через основной Caddy.
+
+Первичная установка staging на сервере:
+
+```bash
+cd /opt
+git clone --branch develop https://github.com/Rorikit/vamos-subscription-tracker.git vamos-subscription-tracker-v1
+cd vamos-subscription-tracker-v1
+cp .env.v1.example .env.v1
+nano .env.v1
+bash deploy/install-v1-autodeploy.sh
+```
+
+В `.env.v1` обязательно заменить:
+
+```env
+AUTH_SECRET=long-random-secret
+OPERATOR_PASSWORD=strong-password
+```
+
+После этого каждый push в `develop` будет обновлять staging `/v1`, а каждый push в `main` будет обновлять production.
+
 ## Backup SQLite на сервере
 
 Production-сервер может делать ежедневный backup SQLite через systemd timer.

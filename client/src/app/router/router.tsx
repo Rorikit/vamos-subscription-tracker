@@ -11,24 +11,29 @@ import { ParticipantCardPage } from "../../pages/participant-card/ParticipantCar
 import { ParticipantsPage } from "../../pages/participants/ParticipantsPage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
 
-export const router = createBrowserRouter([
-  { path: "/login", element: <LoginPage /> },
-  {
-    path: "/",
-    element: (
-      <ProtectedRoute>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: "dashboard", element: <DashboardPage /> },
-      { path: "participants", element: <ParticipantsPage /> },
-      { path: "participants/:id", element: <ParticipantCardPage /> },
-      { path: "memberships", element: <MembershipsPage /> },
-      { path: "finance", element: <FinancePage /> },
-      { path: "audit-logs", element: <AuditLogsPage /> },
-      { path: "settings", element: <SettingsPage /> },
-    ],
-  },
-]);
+const basename = (import.meta.env.VITE_BASE_PATH ?? "/").replace(/\/$/, "") || "/";
+
+export const router = createBrowserRouter(
+  [
+    { path: "/login", element: <LoginPage /> },
+    {
+      path: "/",
+      element: (
+        <ProtectedRoute>
+          <AppLayout />
+        </ProtectedRoute>
+      ),
+      children: [
+        { index: true, element: <Navigate to="/dashboard" replace /> },
+        { path: "dashboard", element: <DashboardPage /> },
+        { path: "participants", element: <ParticipantsPage /> },
+        { path: "participants/:id", element: <ParticipantCardPage /> },
+        { path: "memberships", element: <MembershipsPage /> },
+        { path: "finance", element: <FinancePage /> },
+        { path: "audit-logs", element: <AuditLogsPage /> },
+        { path: "settings", element: <SettingsPage /> },
+      ],
+    },
+  ],
+  { basename },
+);

@@ -1,0 +1,42 @@
+services:
+  backend:
+    container_name: vamos-v1-backend
+    build:
+      context: ./server
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/app.db}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env.v1}
+      AUTH_TOKEN_TTL_HOURS: ${AUTH_TOKEN_TTL_HOURS:-24}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME:-operator}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:?Set OPERATOR_PASSWORD in .env.v1}
+      OPERATOR_FULL_NAME: ${OPERATOR_FULL_NAME:-Operator Vamos V1}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    volumes:
+      - v1-backend-data:/app/data
+    networks:
+      - prod-proxy
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    container_name: vamos-v1-frontend
+    build:
+      context: ./client
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/v1/api}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/v1/}
+    depends_on:
+      - backend
+    networks:
+      - prod-proxy
+    restart: unless-stopped
+
+volumes:
+  v1-backend-data:
+
+networks:
+  prod-proxy:
+    external: true
+    name: vamos-subscription-tracker_default
