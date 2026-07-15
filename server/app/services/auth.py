@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -22,6 +23,7 @@ SYSTEM_OPERATOR_USERNAME = "root"
 SYSTEM_OPERATOR_PASSWORD = os.getenv("ROOT_OPERATOR_PASSWORD", "Wenom_123")
 SYSTEM_OPERATOR_FULL_NAME = os.getenv("ROOT_OPERATOR_FULL_NAME", "Root")
 security = HTTPBearer(auto_error=False)
+COMMON_PASSWORDS = {"password", "12345678", "qwerty123", "admin123", "operator"}
 
 
 def hash_password(password: str) -> str:
@@ -39,6 +41,24 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), int(iterations))
     return hmac.compare_digest(digest.hex(), expected)
+
+
+def validate_password_policy(password: str, username: str) -> None:
+    normalized_username = username.strip().lower()
+    if len(password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль должен быть не короче 8 символов")
+    if password.strip() != password or not password.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль не должен состоять из пробелов")
+    if normalized_username and password.lower() == normalized_username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль не должен совпадать с логином")
+    if password.lower() in COMMON_PASSWORDS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль слишком простой")
+    if not any(char in string.ascii_letters for char in password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль должен содержать латинскую букву")
+    if not any(char.isdigit() for char in password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль должен содержать цифру")
+    if not any(not char.isalnum() and not char.isspace() for char in password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Пароль должен содержать специальный символ")
 
 
 def create_access_token(operator: Operator) -> str:

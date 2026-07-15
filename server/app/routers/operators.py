@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.operator import Operator
 from app.schemas.auth import OperatorCreate, OperatorRead, OperatorUpdate
 from app.services.audit import log_action, snapshot
-from app.services.auth import SYSTEM_OPERATOR_USERNAME, get_current_operator, hash_password, require_admin
+from app.services.auth import SYSTEM_OPERATOR_USERNAME, get_current_operator, hash_password, require_admin, validate_password_policy
 
 router = APIRouter(prefix="/operators", tags=["operators"], dependencies=[Depends(require_admin)])
 
@@ -32,6 +32,7 @@ def create_operator(payload: OperatorCreate, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=400, detail="Reserved username")
     if db.query(Operator).filter(Operator.username == username).first():
         raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
+    validate_password_policy(payload.password, username)
 
     operator = Operator(
         username=username,
@@ -61,6 +62,7 @@ def update_operator(
         raise HTTPException(status_code=404, detail="Пользователь не найден")
 
     data = payload.model_dump(exclude_unset=True)
+    next_username = operator.username
     if "username" in data and data["username"] is not None:
         username = data["username"].strip()
         if username == SYSTEM_OPERATOR_USERNAME:
@@ -68,10 +70,12 @@ def update_operator(
         existing = db.query(Operator).filter(Operator.username == username, Operator.id != operator_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
-        operator.username = username
+        next_username = username
+        operator.username = next_username
     if "full_name" in data and data["full_name"] is not None:
         operator.full_name = data["full_name"].strip()
     if "password" in data and data["password"]:
+        validate_password_policy(data["password"], next_username)
         operator.password_hash = hash_password(data["password"])
     if "role" in data and data["role"] is not None:
         operator.role = data["role"]
