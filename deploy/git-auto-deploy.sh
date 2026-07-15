@@ -23,8 +23,15 @@ git reset --hard "$remote_commit"
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
+if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps caddy >/dev/null 2>&1; then
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
+fi
+
 if [ "${BOOTSTRAP_V1_STAGING:-true}" = "true" ] && [ "$APP_DIR" = "/opt/vamos-subscription-tracker" ]; then
   bash "$APP_DIR/deploy/bootstrap-v1-staging.sh"
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
 fi
 
 if [ -f "$APP_DIR/deploy/vamos-backup.service" ] && [ -f "$APP_DIR/deploy/vamos-backup.timer" ]; then
