@@ -1,6 +1,5 @@
 services:
   backend:
-    container_name: vamos-v1-backend
     build:
       context: ./server
     environment:
@@ -15,12 +14,13 @@ services:
     volumes:
       - v1-backend-data:/app/data
     networks:
-      - prod-proxy
+      prod-proxy:
+        aliases:
+          - v1-backend
     restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   frontend:
-    container_name: vamos-v1-frontend
     build:
       context: ./client
       dockerfile: Dockerfile.prod
@@ -30,7 +30,9 @@ services:
     depends_on:
       - backend
     networks:
-      - prod-proxy
+      prod-proxy:
+        aliases:
+          - v1-frontend
     restart: unless-stopped
 
 volumes:

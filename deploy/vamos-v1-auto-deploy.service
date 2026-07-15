@@ -10,4 +10,5 @@ Environment=APP_DIR=/opt/vamos-subscription-tracker-v1
 Environment=BRANCH=develop
 Environment=COMPOSE_FILE=docker-compose.v1.yml
 Environment=ENV_FILE=.env.v1
+Environment=COMPOSE_PROJECT_NAME=vamos-v1
 ExecStart=/usr/bin/env bash /opt/vamos-subscription-tracker-v1/deploy/git-auto-deploy.sh
