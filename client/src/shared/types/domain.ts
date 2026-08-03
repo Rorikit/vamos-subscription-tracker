@@ -118,7 +118,6 @@ export type TeacherEarning = {
   school_earned: string;
   average_lesson_price: string;
   average_teacher_earning: string;
-  share_of_total_teacher_payouts: string;
   last_visit_date: string | null;
   visits: TeacherEarningVisit[];
 };

@@ -63,7 +63,6 @@ class FinanceSnapshotTest(unittest.TestCase):
 
         second = write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         self.assertEqual(second.teacher_lesson_rate, Decimal("1080.00"))
-        self.assertEqual(second.teacher_share_percent, Decimal("60.00"))
         self.assertEqual(second.teacher_earning, Decimal("1080.00"))
         self.assertEqual(second.school_earning, Decimal("720.00"))
 

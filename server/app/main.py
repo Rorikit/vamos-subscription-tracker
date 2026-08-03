@@ -116,13 +116,6 @@ def migrate_local_sqlite(db) -> None:
     inspector = inspect(engine)
     table_names = inspector.get_table_names()
 
-    if "teachers" in table_names:
-        teacher_columns = {column["name"] for column in inspector.get_columns("teachers")}
-        if "teacher_share_percent" not in teacher_columns:
-            db.execute(text("alter table teachers add column teacher_share_percent numeric(5, 2) default 50"))
-            db.execute(text("update teachers set teacher_share_percent = 50 where teacher_share_percent is null"))
-            db.commit()
-
     if "operators" in table_names:
         operator_columns = {column["name"] for column in inspector.get_columns("operators")}
         if "role" not in operator_columns:
@@ -162,7 +155,6 @@ def migrate_local_sqlite(db) -> None:
     visit_finance_columns = {
         "lesson_price": "numeric(10, 2)",
         "teacher_lesson_rate": "numeric(10, 2)",
-        "teacher_share_percent": "numeric(5, 2)",
         "teacher_earning": "numeric(10, 2)",
         "school_earning": "numeric(10, 2)",
     }

@@ -131,7 +131,6 @@ def write_off_visit(
         visit_date=visit_date or date.today(),
         lesson_price=financials["lesson_price"],
         teacher_lesson_rate=financials["teacher_lesson_rate"],
-        teacher_share_percent=financials["teacher_share_percent"],
         teacher_earning=financials["teacher_earning"],
         school_earning=financials["school_earning"],
     )

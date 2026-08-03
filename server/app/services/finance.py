@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Membership, Payment, Teacher, Visit
-from app.services.lesson_finance import MONEY, ensure_visit_financials, quantize_money, quantize_percent
+from app.services.lesson_finance import ensure_visit_financials, quantize_money
 
 
 def get_teacher_earnings(
@@ -53,11 +53,6 @@ def get_teacher_earnings(
     db.commit()
     visits = valid_visits
 
-    total_teacher_payouts = sum(
-        (Decimal(visit.teacher_earning or 0) for visit in visits if not visit.is_cancelled),
-        Decimal("0"),
-    )
-
     earnings: dict[int, dict] = {
         teacher.id: {
             "teacher_id": teacher.id,
@@ -69,7 +64,6 @@ def get_teacher_earnings(
             "school_earned": Decimal("0"),
             "average_lesson_price": Decimal("0"),
             "average_teacher_earning": Decimal("0"),
-            "share_of_total_teacher_payouts": Decimal("0"),
             "last_visit_date": None,
             "visits": [],
         }
@@ -116,11 +110,6 @@ def get_teacher_earnings(
         item["average_lesson_price"] = quantize_money(item["completed_lessons_value"] / Decimal(visits_count)) if visits_count else Decimal("0.00")
         item["average_teacher_earning"] = quantize_money(item["teacher_earned"] / Decimal(visits_count)) if visits_count else Decimal("0.00")
         item["average_teacher_lesson_rate"] = item["average_teacher_earning"]
-        item["share_of_total_teacher_payouts"] = (
-            quantize_percent(item["teacher_earned"] * Decimal("100") / total_teacher_payouts)
-            if total_teacher_payouts
-            else Decimal("0.00")
-        )
 
     return sorted(
         earnings.values(),

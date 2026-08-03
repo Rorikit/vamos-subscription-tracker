@@ -31,7 +31,6 @@ class TeacherEarning(ApiModel):
     school_earned: Decimal
     average_lesson_price: Decimal
     average_teacher_earning: Decimal
-    share_of_total_teacher_payouts: Decimal
     last_visit_date: date | None = None
     visits: list[TeacherEarningVisit]
 

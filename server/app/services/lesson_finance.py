@@ -7,16 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import Membership, Visit
 
 MONEY = Decimal("0.01")
-PERCENT = Decimal("0.01")
 logger = logging.getLogger(__name__)
 
 
 def quantize_money(value: Decimal) -> Decimal:
     return Decimal(value).quantize(MONEY)
-
-
-def quantize_percent(value: Decimal) -> Decimal:
-    return Decimal(value).quantize(PERCENT)
 
 
 def calculate_visit_financials(membership: Membership) -> dict[str, Decimal]:
@@ -35,7 +30,6 @@ def calculate_visit_financials(membership: Membership) -> dict[str, Decimal]:
     return {
         "lesson_price": lesson_price,
         "teacher_lesson_rate": teacher_lesson_rate,
-        "teacher_share_percent": quantize_percent(teacher_lesson_rate * Decimal("100") / lesson_price) if lesson_price else Decimal("0.00"),
         "teacher_earning": teacher_earning,
         "school_earning": school_earning,
     }
@@ -45,7 +39,6 @@ def ensure_visit_financials(visit: Visit) -> None:
     if (
         visit.lesson_price is not None
         and visit.teacher_lesson_rate is not None
-        and visit.teacher_share_percent is not None
         and visit.teacher_earning is not None
         and visit.school_earning is not None
     ):
@@ -55,7 +48,6 @@ def ensure_visit_financials(visit: Visit) -> None:
     values = calculate_visit_financials(visit.membership)
     visit.lesson_price = values["lesson_price"]
     visit.teacher_lesson_rate = values["teacher_lesson_rate"]
-    visit.teacher_share_percent = values["teacher_share_percent"]
     visit.teacher_earning = values["teacher_earning"]
     visit.school_earning = values["school_earning"]
 
@@ -67,7 +59,6 @@ def backfill_visit_financials(db: Session) -> int:
         .filter(
             (Visit.lesson_price.is_(None))
             | (Visit.teacher_lesson_rate.is_(None))
-            | (Visit.teacher_share_percent.is_(None))
             | (Visit.teacher_earning.is_(None))
             | (Visit.school_earning.is_(None))
         )
@@ -75,13 +66,13 @@ def backfill_visit_financials(db: Session) -> int:
     )
     updated = 0
     for visit in visits:
-        before = (visit.lesson_price, visit.teacher_lesson_rate, visit.teacher_share_percent, visit.teacher_earning, visit.school_earning)
+        before = (visit.lesson_price, visit.teacher_lesson_rate, visit.teacher_earning, visit.school_earning)
         try:
             ensure_visit_financials(visit)
         except HTTPException as exc:
             logger.warning("Skipping visit %s financial backfill: %s", visit.id, exc.detail)
             continue
-        after = (visit.lesson_price, visit.teacher_lesson_rate, visit.teacher_share_percent, visit.teacher_earning, visit.school_earning)
+        after = (visit.lesson_price, visit.teacher_lesson_rate, visit.teacher_earning, visit.school_earning)
         if after != before:
             updated += 1
             db.add(visit)

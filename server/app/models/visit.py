@@ -17,7 +17,6 @@ class Visit(Base):
     visit_date: Mapped[date] = mapped_column(Date)
     lesson_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     teacher_lesson_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
-    teacher_share_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     teacher_earning: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     school_earning: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
