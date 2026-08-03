@@ -21,6 +21,41 @@ fi
 echo "Deploying $current_commit -> $remote_commit"
 git reset --hard "$remote_commit"
 
+if [ -n "${CADDY_BIND_IP:-}" ]; then
+  python3 - <<PY
+from pathlib import Path
+
+compose_path = Path("$COMPOSE_FILE")
+lines = compose_path.read_text().splitlines()
+out = []
+in_caddy = False
+in_ports = False
+
+for line in lines:
+    if line.startswith("  caddy:"):
+        in_caddy = True
+        in_ports = False
+        out.append(line)
+        continue
+    if in_caddy and line.startswith("  ") and not line.startswith("    ") and not line.startswith("  caddy:"):
+        in_caddy = False
+        in_ports = False
+    if in_caddy and line.strip() == "ports:":
+        out.append(line)
+        out.append('      - "${CADDY_BIND_IP}:80:80"')
+        out.append('      - "${CADDY_BIND_IP}:443:443"')
+        in_ports = True
+        continue
+    if in_caddy and in_ports:
+        if line.startswith("      - "):
+            continue
+        in_ports = False
+    out.append(line)
+
+compose_path.write_text("\\n".join(out) + "\\n")
+PY
+fi
+
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
 if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps caddy >/dev/null 2>&1; then
