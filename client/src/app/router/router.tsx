@@ -9,6 +9,7 @@ import { LoginPage } from "../../pages/login/LoginPage";
 import { MembershipsPage } from "../../pages/memberships/MembershipsPage";
 import { ParticipantCardPage } from "../../pages/participant-card/ParticipantCardPage";
 import { ParticipantsPage } from "../../pages/participants/ParticipantsPage";
+import { SchedulePage } from "../../pages/schedule/SchedulePage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
 
 const basename = (import.meta.env.VITE_BASE_PATH ?? "/").replace(/\/$/, "") || "/";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter(
       children: [
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: "dashboard", element: <DashboardPage /> },
+        { path: "schedule", element: <SchedulePage /> },
         { path: "participants", element: <ParticipantsPage /> },
         { path: "participants/:id", element: <ParticipantCardPage /> },
         { path: "memberships", element: <MembershipsPage /> },

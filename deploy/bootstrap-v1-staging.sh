@@ -4,7 +4,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/vamos-subscription-tracker-v1}"
 REPO_URL="${REPO_URL:-https://github.com/Rorikit/vamos-subscription-tracker.git}"
 BRANCH="${BRANCH:-develop}"
-PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-http://168.222.140.16}"
+PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-http://168.222.202.160}"
 PASSWORD_FILE="${PASSWORD_FILE:-/root/vamos-v1-operator-password.txt}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vamos-v1}"
 

@@ -1,8 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher, Visit
+from app.models import AttendanceStatus, Membership, MembershipStatus, MembershipType, Participant, Payment, ScheduleEvent, ScheduleEventParticipant, ScheduleEventStatus, ScheduleEventType, Teacher, Visit
 
 
 def seed_data(db: Session) -> None:
@@ -49,15 +49,57 @@ def seed_data(db: Session) -> None:
             Payment(participant_id=5, membership_id=5, amount=5000, payment_date=today - timedelta(days=2), payment_method="card"),
         ]
     )
-    db.add_all(
-        [
-            Visit(participant_id=1, membership_id=1, teacher_id=1, visit_date=today - timedelta(days=8)),
-            Visit(participant_id=1, membership_id=1, teacher_id=2, visit_date=today - timedelta(days=5)),
-            Visit(participant_id=1, membership_id=1, teacher_id=1, visit_date=today - timedelta(days=1)),
-            Visit(participant_id=2, membership_id=2, teacher_id=2, visit_date=today - timedelta(days=20)),
-            Visit(participant_id=2, membership_id=2, teacher_id=3, visit_date=today - timedelta(days=14)),
-            Visit(participant_id=3, membership_id=3, teacher_id=3, visit_date=today - timedelta(days=4)),
-            Visit(participant_id=5, membership_id=5, teacher_id=1, visit_date=today - timedelta(days=1)),
-        ]
-    )
+    visits = [
+        Visit(participant_id=1, membership_id=1, teacher_id=1, visit_date=today - timedelta(days=8)),
+        Visit(participant_id=1, membership_id=1, teacher_id=2, visit_date=today - timedelta(days=5)),
+        Visit(participant_id=1, membership_id=1, teacher_id=1, visit_date=today - timedelta(days=1)),
+        Visit(participant_id=2, membership_id=2, teacher_id=2, visit_date=today - timedelta(days=20)),
+        Visit(participant_id=2, membership_id=2, teacher_id=3, visit_date=today - timedelta(days=14)),
+        Visit(participant_id=3, membership_id=3, teacher_id=3, visit_date=today - timedelta(days=4)),
+        Visit(participant_id=5, membership_id=5, teacher_id=1, visit_date=today - timedelta(days=1)),
+    ]
+    db.add_all(visits)
+    db.commit()
+
+    schedule_events = [
+        ScheduleEvent(
+            title="Бачата, группа",
+            teacher_id=1,
+            starts_at=datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(hour=19),
+            ends_at=datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(hour=20),
+            event_type=ScheduleEventType.GROUP,
+            location="Зал 1",
+            color="#159895",
+            participants=[
+                ScheduleEventParticipant(participant_id=1),
+                ScheduleEventParticipant(participant_id=5),
+            ],
+        ),
+        ScheduleEvent(
+            title="Индивидуальное занятие",
+            teacher_id=2,
+            starts_at=datetime.combine(today + timedelta(days=2), datetime.min.time()).replace(hour=12),
+            ends_at=datetime.combine(today + timedelta(days=2), datetime.min.time()).replace(hour=13),
+            event_type=ScheduleEventType.INDIVIDUAL,
+            location="Зал 2",
+            color="#4361ee",
+            participants=[ScheduleEventParticipant(participant_id=2)],
+        ),
+        ScheduleEvent(
+            title="Сальса, проведено",
+            teacher_id=1,
+            starts_at=datetime.combine(today - timedelta(days=1), datetime.min.time()).replace(hour=18),
+            ends_at=datetime.combine(today - timedelta(days=1), datetime.min.time()).replace(hour=19),
+            event_type=ScheduleEventType.GROUP,
+            status=ScheduleEventStatus.COMPLETED,
+            completed_at=datetime.utcnow(),
+            location="Зал 1",
+            color="#159895",
+            participants=[
+                ScheduleEventParticipant(participant_id=1, attendance_status=AttendanceStatus.ATTENDED, visit_id=visits[2].id),
+                ScheduleEventParticipant(participant_id=5, attendance_status=AttendanceStatus.ATTENDED, visit_id=visits[6].id),
+            ],
+        ),
+    ]
+    db.add_all(schedule_events)
     db.commit()

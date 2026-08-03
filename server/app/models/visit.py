@@ -27,6 +27,7 @@ class Visit(Base):
     participant = relationship("Participant", back_populates="visits")
     membership = relationship("Membership", back_populates="visits")
     teacher = relationship("Teacher", back_populates="visits")
+    schedule_participant = relationship("ScheduleEventParticipant", back_populates="visit", uselist=False)
 
     @property
     def membership_type(self):

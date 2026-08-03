@@ -135,3 +135,48 @@ export type AuditLog = {
   after_json: string | null;
   created_at: string;
 };
+
+export type ScheduleEventStatus = "scheduled" | "completed" | "cancelled";
+export type ScheduleEventType = "group" | "individual" | "other";
+export type AttendanceStatus = "planned" | "attended" | "absent" | "cancelled" | "refunded";
+
+export type ScheduleEventParticipant = {
+  id: number;
+  schedule_event_id: number;
+  participant_id: number;
+  attendance_status: AttendanceStatus;
+  visit_id: number | null;
+  participant?: { id: number; full_name: string; phone?: string | null } | null;
+  visit?: Visit | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScheduleEvent = {
+  id: number;
+  title: string;
+  description: string | null;
+  teacher_id: number;
+  starts_at: string;
+  ends_at: string;
+  status: ScheduleEventStatus;
+  event_type: ScheduleEventType;
+  location: string | null;
+  color: string | null;
+  recurrence_group_id: string | null;
+  recurrence_rule: string | null;
+  cancelled_at: string | null;
+  completed_at: string | null;
+  teacher?: { id: number; full_name: string } | null;
+  participants: ScheduleEventParticipant[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScheduleConflict = {
+  event_id: number;
+  title: string;
+  teacher_name: string | null;
+  starts_at: string;
+  ends_at: string;
+};

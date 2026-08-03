@@ -101,6 +101,7 @@ def write_off_visit(
     membership_id: int | None,
     teacher_id: int,
     visit_date: date | None,
+    commit: bool = True,
 ) -> Visit:
     teacher = db.get(Teacher, teacher_id)
     if not teacher or not teacher.is_active:
@@ -138,12 +139,15 @@ def write_off_visit(
     if membership.remaining_lessons == 0:
         membership.status = MembershipStatus.FINISHED
     db.add_all([visit, membership])
-    db.commit()
-    db.refresh(visit)
+    if commit:
+        db.commit()
+        db.refresh(visit)
+    else:
+        db.flush()
     return visit
 
 
-def cancel_visit(db: Session, visit_id: int) -> Visit:
+def cancel_visit(db: Session, visit_id: int, commit: bool = True) -> Visit:
     visit = db.get(Visit, visit_id)
     if not visit:
         raise HTTPException(status_code=404, detail="Списание не найдено")
@@ -162,8 +166,11 @@ def cancel_visit(db: Session, visit_id: int) -> Visit:
         membership.status = MembershipStatus.ACTIVE
     db.add(membership)
     db.add(visit)
-    db.commit()
-    db.refresh(visit)
+    if commit:
+        db.commit()
+        db.refresh(visit)
+    else:
+        db.flush()
     return visit
 
 
