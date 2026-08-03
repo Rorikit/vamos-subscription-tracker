@@ -174,10 +174,9 @@ function TeacherTable({ data, expandedTeacherId, onToggle }: { data: TeacherEarn
           <th className="th">Преподаватель</th>
           <th className="th">Проведено занятий</th>
           <th className="th">Стоимость занятий</th>
-          <th className="th">Процент</th>
           <th className="th">Выплата</th>
           <th className="th">Доход школы</th>
-          <th className="th">Средняя выплата</th>
+          <th className="th">Средняя ставка</th>
           <th className="th">Подробнее</th>
         </tr>
       </thead>
@@ -202,10 +201,9 @@ function TeacherTable({ data, expandedTeacherId, onToggle }: { data: TeacherEarn
                 </td>
                 <td className="td">{item.visits_count}</td>
                 <td className="td">{toCurrency(item.completed_lessons_value)}</td>
-                <td className="td">{Number(item.teacher_share_percent).toLocaleString("ru-RU")}%</td>
                 <td className="td font-semibold text-ink">{toCurrency(item.teacher_earned)}</td>
                 <td className="td">{toCurrency(item.school_earned)}</td>
-                <td className="td">{toCurrency(item.average_teacher_earning)}</td>
+                <td className="td">{toCurrency(item.average_teacher_lesson_rate)}</td>
                 <td className="td">
                   <button className="btn-secondary h-9" onClick={() => onToggle(item.teacher_id)}>
                     {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -215,7 +213,7 @@ function TeacherTable({ data, expandedTeacherId, onToggle }: { data: TeacherEarn
               </tr>
               {expanded ? (
                 <tr>
-                  <td className="td bg-slate-50" colSpan={8}>
+                  <td className="td bg-slate-50" colSpan={7}>
                     <VisitDetails item={item} />
                   </td>
                 </tr>
@@ -240,7 +238,7 @@ function VisitDetails({ item }: { item: TeacherEarning }) {
           <th className="th">Ученик</th>
           <th className="th">Абонемент</th>
           <th className="th">Цена занятия</th>
-          <th className="th">Процент</th>
+          <th className="th">Ставка преподавателю</th>
           <th className="th">Выплата</th>
           <th className="th">Доход школы</th>
           <th className="th">Статус</th>
@@ -253,7 +251,7 @@ function VisitDetails({ item }: { item: TeacherEarning }) {
             <td className="td">{visit.participant_name}</td>
             <td className="td">{visit.membership_name}</td>
             <td className="td">{toCurrency(visit.lesson_price)}</td>
-            <td className="td">{Number(visit.teacher_share_percent).toLocaleString("ru-RU")}%</td>
+            <td className="td">{toCurrency(visit.teacher_lesson_rate)}</td>
             <td className="td">{toCurrency(visit.teacher_earning)}</td>
             <td className="td">{toCurrency(visit.school_earning)}</td>
             <td className="td">

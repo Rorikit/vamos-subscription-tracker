@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
-from app.models import Membership, MembershipType, Participant, Payment, Teacher, Visit
-from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, payments, teachers, visits
+from app.models import Membership, MembershipType, Participant, Payment, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
+from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, payments, schedule_events, teachers, visits
 from app.seed import seed_data
-from app.services.auth import ensure_default_operator, get_current_operator
+from app.services.auth import ensure_default_operator, ensure_system_operator, get_current_operator
 from app.services.finance import ensure_teacher_seed
 from app.services.lesson_finance import backfill_visit_financials
 
@@ -43,6 +43,7 @@ app.include_router(payments.router, dependencies=protected)
 app.include_router(teachers.router, dependencies=protected)
 app.include_router(operators.router, dependencies=protected)
 app.include_router(finance.router, dependencies=protected)
+app.include_router(schedule_events.router, dependencies=protected)
 
 
 def should_seed_demo_data() -> bool:
@@ -101,6 +102,7 @@ def on_startup() -> None:
             remove_demo_seed_data(db)
         backfill_visit_financials(db)
         ensure_default_operator(db)
+        ensure_system_operator(db)
     finally:
         db.close()
 
@@ -128,6 +130,21 @@ def migrate_local_sqlite(db) -> None:
             db.execute(text("update operators set role = 'ADMIN' where role is null"))
             db.commit()
 
+    if "memberships" in table_names:
+        membership_columns = {column["name"] for column in inspector.get_columns("memberships")}
+        if "teacher_lesson_rate" not in membership_columns:
+            db.execute(text("alter table memberships add column teacher_lesson_rate numeric(10, 2) default 0"))
+            db.execute(
+                text(
+                    """
+                    update memberships
+                    set teacher_lesson_rate = round((price / total_lessons) * 0.5, 2)
+                    where total_lessons > 0 and (teacher_lesson_rate is null or teacher_lesson_rate = 0)
+                    """
+                )
+            )
+            db.commit()
+
     if "visits" not in table_names:
         return
 
@@ -144,6 +161,7 @@ def migrate_local_sqlite(db) -> None:
     visit_columns = {column["name"] for column in inspector.get_columns("visits")}
     visit_finance_columns = {
         "lesson_price": "numeric(10, 2)",
+        "teacher_lesson_rate": "numeric(10, 2)",
         "teacher_share_percent": "numeric(5, 2)",
         "teacher_earning": "numeric(10, 2)",
         "school_earning": "numeric(10, 2)",
@@ -151,6 +169,8 @@ def migrate_local_sqlite(db) -> None:
     for column_name, column_type in visit_finance_columns.items():
         if column_name not in visit_columns:
             db.execute(text(f"alter table visits add column {column_name} {column_type}"))
+    db.commit()
+    db.execute(text("update visits set teacher_lesson_rate = teacher_earning where teacher_lesson_rate is null and teacher_earning is not null"))
     db.commit()
 
     backfill_visit_financials(db)

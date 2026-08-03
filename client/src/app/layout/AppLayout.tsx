@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { CalendarCheck, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
+import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
 
 import { useAuth } from "../auth/AuthProvider";
 
 const navItems = [
   { to: "/dashboard", label: "Панель", icon: LayoutDashboard, roles: ["admin", "operator", "finance"] },
+  { to: "/schedule", label: "Расписание", icon: CalendarDays, roles: ["admin", "operator"] },
   { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },
   { to: "/memberships", label: "Абонементы", icon: Ticket, roles: ["admin", "operator"] },
   { to: "/finance", label: "Финансы", icon: CreditCard, roles: ["admin", "finance"] },

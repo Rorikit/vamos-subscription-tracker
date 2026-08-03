@@ -20,4 +20,4 @@ class Participant(Base):
     memberships = relationship("Membership", back_populates="participant")
     visits = relationship("Visit", back_populates="participant")
     payments = relationship("Payment", back_populates="participant")
-
+    schedule_events = relationship("ScheduleEventParticipant", back_populates="participant")

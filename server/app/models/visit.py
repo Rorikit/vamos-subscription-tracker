@@ -16,6 +16,7 @@ class Visit(Base):
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
     visit_date: Mapped[date] = mapped_column(Date)
     lesson_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    teacher_lesson_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     teacher_share_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     teacher_earning: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     school_earning: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
@@ -26,6 +27,7 @@ class Visit(Base):
     participant = relationship("Participant", back_populates="visits")
     membership = relationship("Membership", back_populates="visits")
     teacher = relationship("Teacher", back_populates="visits")
+    schedule_participant = relationship("ScheduleEventParticipant", back_populates="visit", uselist=False)
 
     @property
     def membership_type(self):

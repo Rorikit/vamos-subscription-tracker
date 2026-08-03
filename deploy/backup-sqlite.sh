@@ -6,6 +6,8 @@ BACKUP_DIR="${BACKUP_DIR:-$APP_DIR/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 ENV_FILE="${ENV_FILE:-.env}"
+SERVICE_NAME="${SERVICE_NAME:-backend}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-app}"
 LOCK_FILE="${LOCK_FILE:-/tmp/vamos-sqlite-backup.lock}"
 
 mkdir -p "$BACKUP_DIR"
@@ -16,9 +18,10 @@ mkdir -p "$BACKUP_DIR"
   cd "$APP_DIR"
 
   timestamp="$(date +%Y%m%d-%H%M%S)"
-  backup_file="$BACKUP_DIR/app-$timestamp.db.gz"
+  backup_file="$BACKUP_DIR/$BACKUP_PREFIX-$timestamp.db.gz"
+  manifest_file="$backup_file.sha256"
 
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend python - <<'PY' | gzip -c > "$backup_file"
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T "$SERVICE_NAME" python - <<'PY' | gzip -c > "$backup_file"
 import os
 import sqlite3
 import sys
@@ -49,9 +52,18 @@ finally:
         pass
 PY
 
+  if [ ! -s "$backup_file" ]; then
+    rm -f "$backup_file"
+    echo "Backup file is empty; backup failed" >&2
+    exit 1
+  fi
+
   chmod 600 "$backup_file"
-  find "$BACKUP_DIR" -type f -name "app-*.db.gz" -mtime +"$RETENTION_DAYS" -delete
+  sha256sum "$backup_file" > "$manifest_file"
+  chmod 600 "$manifest_file"
+  find "$BACKUP_DIR" -type f \( -name "$BACKUP_PREFIX-*.db.gz" -o -name "$BACKUP_PREFIX-*.db.gz.sha256" \) -mtime +"$RETENTION_DAYS" -delete
 
   echo "Created backup: $backup_file"
+  cat "$manifest_file"
   ls -lh "$backup_file"
 ) 9>"$LOCK_FILE"

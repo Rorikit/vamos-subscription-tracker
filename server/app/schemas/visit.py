@@ -20,7 +20,7 @@ class VisitRead(ApiModel):
     teacher_id: int
     visit_date: date
     lesson_price: Decimal | None = None
-    teacher_share_percent: Decimal | None = None
+    teacher_lesson_rate: Decimal | None = None
     teacher_earning: Decimal | None = None
     school_earning: Decimal | None = None
     is_cancelled: bool

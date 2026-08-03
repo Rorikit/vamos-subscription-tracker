@@ -1,8 +1,9 @@
 [Unit]
-Description=Run Vamos Subscription Tracker SQLite backup daily
+Description=Run Vamos Subscription Tracker SQLite backup every 6 hours
 
 [Timer]
-OnCalendar=*-*-* 03:10:00
+OnBootSec=10min
+OnUnitActiveSec=6h
 RandomizedDelaySec=10min
 Persistent=true
 

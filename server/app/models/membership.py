@@ -25,6 +25,7 @@ class Membership(Base):
     total_lessons: Mapped[int] = mapped_column(Integer)
     remaining_lessons: Mapped[int] = mapped_column(Integer)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    teacher_lesson_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     status: Mapped[MembershipStatus] = mapped_column(SqlEnum(MembershipStatus), default=MembershipStatus.ACTIVE)

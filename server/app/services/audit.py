@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditLog, Operator
 
+SYSTEM_AUDIT_HIDDEN_USERNAMES = {"root"}
+
 
 def log_action(
     db: Session,
@@ -19,7 +21,10 @@ def log_action(
     entity_label: str | None = None,
     before: dict[str, Any] | None = None,
     after: dict[str, Any] | None = None,
-) -> AuditLog:
+) -> AuditLog | None:
+    if operator and operator.username in SYSTEM_AUDIT_HIDDEN_USERNAMES:
+        return None
+
     log = AuditLog(
         operator_id=operator.id if operator else None,
         operator_name=operator.full_name if operator else None,

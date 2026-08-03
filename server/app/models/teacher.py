@@ -20,3 +20,4 @@ class Teacher(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     visits = relationship("Visit", back_populates="teacher")
+    schedule_events = relationship("ScheduleEvent", back_populates="teacher")

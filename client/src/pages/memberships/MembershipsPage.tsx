@@ -35,7 +35,7 @@ export function MembershipsPage() {
       <section className="panel overflow-hidden">
         <table className="w-full">
           <thead className="bg-slate-50">
-            <tr><th className="th">Участник</th><th className="th">Тип</th><th className="th">Период</th><th className="th">Остаток</th><th className="th">Цена</th><th className="th">Статус</th></tr>
+            <tr><th className="th">Участник</th><th className="th">Тип</th><th className="th">Период</th><th className="th">Остаток</th><th className="th">Цена</th><th className="th">Ставка преподавателя</th><th className="th">Статус</th></tr>
           </thead>
           <tbody>
             {data?.map((membership) => (
@@ -45,6 +45,7 @@ export function MembershipsPage() {
                 <td className="td">{toDate(membership.start_date)} - {toDate(membership.end_date)}</td>
                 <td className="td">{membership.remaining_lessons} / {membership.total_lessons}</td>
                 <td className="td">{toCurrency(membership.price)}</td>
+                <td className="td">{toCurrency(membership.teacher_lesson_rate)}</td>
                 <td className="td"><StatusBadge status={membership.status} /></td>
               </tr>
             ))}
