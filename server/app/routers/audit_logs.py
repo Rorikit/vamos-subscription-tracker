@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AuditLog
+from app.models import AuditLog, Operator
 from app.schemas.audit_log import AuditLogRead
 from app.services.auth import require_admin
 
@@ -21,7 +21,7 @@ def list_audit_logs(
     entity_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    query = db.query(AuditLog)
+    query = db.query(AuditLog).filter(~AuditLog.operator.has(Operator.username == "root"))
     if date_from:
         query = query.filter(AuditLog.created_at >= datetime.combine(date_from, time.min))
     if date_to:

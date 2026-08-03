@@ -103,6 +103,49 @@ docker compose down
 docker compose down -v
 ```
 
+## Бекапы на сервере
+
+Для production добавлен systemd-таймер `vamos-backup.timer`.
+
+По умолчанию при установке через `deploy/install-backup-timer.sh`:
+
+- бекап создается каждые 6 часов;
+- архивы хранятся 30 дней;
+- путь: `/opt/vamos-subscription-tracker/backups`;
+- рядом с каждым архивом создается `.sha256` для проверки целостности.
+
+Установка или обновление расписания:
+
+```bash
+cd /opt/vamos-subscription-tracker
+BACKUP_INTERVAL_HOURS=6 RETENTION_DAYS=30 bash deploy/install-backup-timer.sh
+```
+
+Ручной запуск:
+
+```bash
+systemctl start vamos-backup.service
+```
+
+Проверка:
+
+```bash
+systemctl list-timers vamos-backup.timer
+journalctl -u vamos-backup.service -n 100 --no-pager
+ls -lh /opt/vamos-subscription-tracker/backups
+```
+
+Восстановление:
+
+```bash
+cd /opt/vamos-subscription-tracker
+bash deploy/restore-sqlite-backup.sh /opt/vamos-subscription-tracker/backups/prod-app-YYYYmmdd-HHMMSS.db.gz
+```
+
+Перед восстановлением production сначала проверьте архив на staging.
+
+Дополнительная политика безопасности описана в `docs/security-operations.md`.
+
 ## Production-деплой через Docker
 
 Для сервера добавлен отдельный production-compose:
