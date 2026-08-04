@@ -94,6 +94,17 @@ class ScheduleEventTest(unittest.TestCase):
         updated = update_event(self.db, event.id, ScheduleEventUpdate(title="Сальса"))
         self.assertEqual(updated.title, "Сальса")
 
+    def test_update_event_keeps_existing_participant_without_duplicate(self) -> None:
+        event = create_events(self.db, self.payload())[0]
+        updated = update_event(
+            self.db,
+            event.id,
+            ScheduleEventUpdate(title="Сальса", participant_ids=[self.participant_id]),
+        )
+
+        self.assertEqual(updated.title, "Сальса")
+        self.assertEqual([item.participant_id for item in updated.participants], [self.participant_id])
+
     def test_complete_group_event_and_return_visit(self) -> None:
         event = create_events(self.db, self.payload(participant_ids=[self.participant_id, self.second_id]))[0]
         completed = complete_event(

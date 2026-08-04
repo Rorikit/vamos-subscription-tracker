@@ -114,10 +114,7 @@ def update_event(db: Session, event_id: int, payload: ScheduleEventUpdate) -> Sc
     for key, value in data.items():
         setattr(event, key, value)
     if participant_ids is not None:
-        event.participants = [
-            ScheduleEventParticipant(participant_id=participant_id, attendance_status=AttendanceStatus.PLANNED)
-            for participant_id in participant_ids
-        ]
+        sync_event_participants(event, participant_ids)
     db.add(event)
     db.commit()
     db.refresh(event)
@@ -262,6 +259,18 @@ def ensure_participants_exist(db: Session, participant_ids: list[int]) -> None:
     missing = set(participant_ids) - existing
     if missing:
         raise HTTPException(status_code=404, detail=f"Участники не найдены: {', '.join(map(str, sorted(missing)))}")
+
+
+def sync_event_participants(event: ScheduleEvent, participant_ids: list[int]) -> None:
+    next_ids = set(participant_ids)
+    event.participants[:] = [item for item in event.participants if item.participant_id in next_ids]
+    existing_ids = {item.participant_id for item in event.participants}
+    for participant_id in participant_ids:
+        if participant_id not in existing_ids:
+            event.participants.append(
+                ScheduleEventParticipant(participant_id=participant_id, attendance_status=AttendanceStatus.PLANNED)
+            )
+            existing_ids.add(participant_id)
 
 
 def raise_conflict(event: ScheduleEvent) -> None:
