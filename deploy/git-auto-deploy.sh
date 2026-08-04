@@ -5,6 +5,8 @@ APP_DIR="${APP_DIR:-/opt/vamos-subscription-tracker}"
 BRANCH="${BRANCH:-main}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 ENV_FILE="${ENV_FILE:-.env}"
+V1_APP_DIR="${V1_APP_DIR:-/opt/vamos-subscription-tracker-v1}"
+V1_BRANCH="${V1_BRANCH:-develop}"
 
 cd "$APP_DIR"
 
@@ -54,6 +56,7 @@ remote_commit="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$current_commit" = "$remote_commit" ]; then
   apply_caddy_bind_ip
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d caddy
   echo "Already up to date: $current_commit"
   exit 0
 fi
@@ -71,7 +74,8 @@ if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps caddy >/dev/null 
 fi
 
 if [ "${BOOTSTRAP_V1_STAGING:-true}" = "true" ] && [ "$APP_DIR" = "/opt/vamos-subscription-tracker" ]; then
-  bash "$APP_DIR/deploy/bootstrap-v1-staging.sh"
+  APP_DIR="$V1_APP_DIR" BRANCH="$V1_BRANCH" bash "$APP_DIR/deploy/bootstrap-v1-staging.sh"
+  apply_caddy_bind_ip
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
 fi
