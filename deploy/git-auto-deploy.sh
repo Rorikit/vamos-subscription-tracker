@@ -8,20 +8,11 @@ ENV_FILE="${ENV_FILE:-.env}"
 
 cd "$APP_DIR"
 
-git fetch origin "$BRANCH"
+apply_caddy_bind_ip() {
+  if [ -z "${CADDY_BIND_IP:-}" ]; then
+    return 0
+  fi
 
-current_commit="$(git rev-parse HEAD)"
-remote_commit="$(git rev-parse "origin/$BRANCH")"
-
-if [ "$current_commit" = "$remote_commit" ]; then
-  echo "Already up to date: $current_commit"
-  exit 0
-fi
-
-echo "Deploying $current_commit -> $remote_commit"
-git reset --hard "$remote_commit"
-
-if [ -n "${CADDY_BIND_IP:-}" ]; then
   python3 - <<PY
 from pathlib import Path
 
@@ -54,7 +45,23 @@ for line in lines:
 
 compose_path.write_text("\\n".join(out) + "\\n")
 PY
+}
+
+git fetch origin "$BRANCH"
+
+current_commit="$(git rev-parse HEAD)"
+remote_commit="$(git rev-parse "origin/$BRANCH")"
+
+if [ "$current_commit" = "$remote_commit" ]; then
+  apply_caddy_bind_ip
+  echo "Already up to date: $current_commit"
+  exit 0
 fi
+
+echo "Deploying $current_commit -> $remote_commit"
+git reset --hard "$remote_commit"
+
+apply_caddy_bind_ip
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
