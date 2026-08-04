@@ -56,8 +56,8 @@ export function SchedulePage() {
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
   const events = useQuery({ queryKey: ["schedule-events", filters], queryFn: () => scheduleService.list(filters) });
 
-  const cancelMutation = useMutation({
-    mutationFn: (eventId: number) => scheduleService.cancel(eventId),
+  const deleteMutation = useMutation({
+    mutationFn: (eventId: number) => scheduleService.delete(eventId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["schedule-events"] });
       setSelectedEvent(null);
@@ -163,7 +163,7 @@ export function SchedulePage() {
             event={selectedEvent}
             onEdit={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onMove={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
-            onCancel={() => window.confirm("Отменить занятие?") && cancelMutation.mutate(selectedEvent.id)}
+            onDelete={() => window.confirm("Удалить занятие из расписания?") && deleteMutation.mutate(selectedEvent.id)}
             onComplete={() => { setCompleteEvent(selectedEvent); setSelectedEvent(null); }}
             onReturn={(participantId) => returnMutation.mutate({ eventId: selectedEvent.id, participantId })}
           />
@@ -361,7 +361,7 @@ function ParticipantChoice({ participant, checked, onToggle }: { participant: Pa
   );
 }
 
-function EventCard({ event, onEdit, onMove, onCancel, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onCancel: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
+function EventCard({ event, onEdit, onMove, onDelete, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onDelete: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
   return (
@@ -397,7 +397,7 @@ function EventCard({ event, onEdit, onMove, onCancel, onComplete, onReturn }: { 
             <button className="btn-primary" onClick={onComplete}><CheckCircle2 size={17} /> Отметить проведение</button>
             <button className="btn-secondary" onClick={onEdit}>Редактировать</button>
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
-            <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> Отменить</button>
+            <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button>
           </>
         ) : null}
       </div>

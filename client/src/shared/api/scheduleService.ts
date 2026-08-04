@@ -38,6 +38,7 @@ export const scheduleService = {
   move: (id: number, payload: { starts_at: string; ends_at: string; scope?: string }) =>
     api<ScheduleEvent>(`/schedule-events/${id}/move`, { method: "POST", body: JSON.stringify(payload) }),
   cancel: (id: number) => api<ScheduleEvent>(`/schedule-events/${id}/cancel`, { method: "POST" }),
+  delete: (id: number) => api<void>(`/schedule-events/${id}`, { method: "DELETE" }),
   complete: (id: number, participants: Array<{ participant_id: number; attendance_status: AttendanceStatus }>) =>
     api<ScheduleEvent>(`/schedule-events/${id}/complete`, { method: "POST", body: JSON.stringify({ participants }) }),
   returnParticipant: (eventId: number, participantId: number) =>

@@ -22,6 +22,7 @@ from app.services.schedule_events import (
     cancel_event,
     complete_event,
     create_events,
+    delete_event,
     get_event,
     list_events,
     move_event,
@@ -97,6 +98,20 @@ def cancel_schedule_event(
     event = cancel_event(db, event_id)
     log_action(db, operator, "schedule_event_cancelled", "schedule_event", event.id, event.title, after=snapshot(event, ["status", "cancelled_at"]))
     return event
+
+
+@router.delete("/{event_id}", status_code=204)
+def delete_schedule_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    operator: Operator = Depends(require_operator_access),
+):
+    event = get_event(db, event_id)
+    before = snapshot(event, ["title", "teacher_id", "starts_at", "ends_at", "status", "event_type"])
+    title = event.title
+    delete_event(db, event_id)
+    log_action(db, operator, "schedule_event_deleted", "schedule_event", event_id, title, before=before)
+    return None
 
 
 @router.post("/{event_id}/move", response_model=ScheduleEventRead)

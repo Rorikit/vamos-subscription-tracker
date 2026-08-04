@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Membership, MembershipStatus, MembershipType, Participant, ScheduleEventStatus, Teacher
 from app.schemas.schedule import ScheduleEventCreate, ScheduleEventUpdate
-from app.services.schedule_events import complete_event, create_events, move_event, return_participant_visit, update_event
+from app.services.schedule_events import complete_event, create_events, delete_event, move_event, return_participant_visit, update_event
 
 
 class ScheduleEventTest(unittest.TestCase):
@@ -104,6 +104,23 @@ class ScheduleEventTest(unittest.TestCase):
 
         self.assertEqual(updated.title, "Сальса")
         self.assertEqual([item.participant_id for item in updated.participants], [self.participant_id])
+
+    def test_delete_scheduled_event_removes_it(self) -> None:
+        event = create_events(self.db, self.payload())[0]
+        delete_event(self.db, event.id)
+
+        self.assertIsNone(self.db.get(type(event), event.id))
+
+    def test_delete_completed_event_is_rejected(self) -> None:
+        event = create_events(self.db, self.payload())[0]
+        complete_event(
+            self.db,
+            event.id,
+            [{"participant_id": self.participant_id, "attendance_status": "attended"}],
+        )
+
+        with self.assertRaises(HTTPException):
+            delete_event(self.db, event.id)
 
     def test_complete_group_event_and_return_visit(self) -> None:
         event = create_events(self.db, self.payload(participant_ids=[self.participant_id, self.second_id]))[0]
