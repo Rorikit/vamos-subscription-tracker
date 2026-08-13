@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pencil, RotateCcw, Save } from "lucide-react";
 
@@ -120,9 +121,22 @@ function FinanceContent({
         </div>
       </section>
 
+      <section className="panel p-5">
+        <div className="flex items-center justify-between">
+          <SectionTitle title="Структура расходов" compact />
+          <Link className="text-sm font-semibold text-mint hover:text-teal-700" to="/extra-expenses">Внештатные расходы подробнее</Link>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-3">
+          <ExpenseGroupItem label="Регулярные расходы" value={report.regular_expenses_total} />
+          <ExpenseGroupItem label="Преподаватели" value={report.teacher_expense_total} />
+          <ExpenseGroupItem label="Внештатные расходы" value={report.extra_expenses_total} />
+          <ExpenseGroupItem label="Всего" value={report.expenses_total} strong />
+        </div>
+      </section>
+
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="panel p-5">
-          <SectionTitle title="Структура расходов" compact />
+          <SectionTitle title="Расходы по статьям" compact />
           <ExpenseBars report={report} />
         </section>
         <section className="panel p-5">
@@ -144,6 +158,15 @@ function FinanceContent({
         {expandedTeachers ? <TeacherDetails data={report.teacher_earnings} /> : <div className="px-5 py-4 text-sm text-slate-500">Выплаты преподавателям учтены в расходах как категория «Оплата преподавателям».</div>}
       </section>
     </>
+  );
+}
+
+function ExpenseGroupItem({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="rounded-md border border-slate-100 bg-slate-50 px-4 py-3">
+      <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+      <div className={`mt-1 text-lg ${strong ? "font-bold text-ink" : "font-semibold text-slate-700"}`}>{toCurrency(value)}</div>
+    </div>
   );
 }
 

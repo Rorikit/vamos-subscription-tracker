@@ -5,6 +5,7 @@ import { RoleRoute } from "../auth/RoleRoute";
 import { AppLayout } from "../layout/AppLayout";
 import { DashboardPage } from "../../pages/dashboard/DashboardPage";
 import { AuditLogsPage } from "../../pages/audit-logs/AuditLogsPage";
+import { ExtraExpensesPage } from "../../pages/extra-expenses/ExtraExpensesPage";
 import { FinancePage } from "../../pages/finance/FinancePage";
 import { LoginPage } from "../../pages/login/LoginPage";
 import { MembershipsPage } from "../../pages/memberships/MembershipsPage";
@@ -34,6 +35,7 @@ export const router = createBrowserRouter(
         { path: "participants/:id", element: <RoleRoute roles={["admin", "operator"]}><ParticipantCardPage /></RoleRoute> },
         { path: "memberships", element: <RoleRoute roles={["admin", "operator"]}><MembershipsPage /></RoleRoute> },
         { path: "practice", element: <RoleRoute roles={["admin", "operator", "finance"]}><PracticePage /></RoleRoute> },
+        { path: "extra-expenses", element: <RoleRoute roles={["admin", "operator", "finance"]}><ExtraExpensesPage /></RoleRoute> },
         { path: "finance", element: <RoleRoute roles={["admin", "finance"]}><FinancePage /></RoleRoute> },
         { path: "audit-logs", element: <RoleRoute roles={["admin"]}><AuditLogsPage /></RoleRoute> },
         { path: "settings", element: <RoleRoute roles={["admin"]}><SettingsPage /></RoleRoute> },

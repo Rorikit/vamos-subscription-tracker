@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, Dumbbell, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
+import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, Dumbbell, LayoutDashboard, LogOut, ReceiptText, Settings, Ticket, Users } from "lucide-react";
 
 import { useAuth } from "../auth/AuthProvider";
 import { financeService } from "../../shared/api/financeService";
@@ -12,6 +12,7 @@ const navItems = [
   { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },
   { to: "/memberships", label: "Абонементы", icon: Ticket, roles: ["admin", "operator"] },
   { to: "/practice", label: "Практика", icon: Dumbbell, roles: ["admin", "operator", "finance"] },
+  { to: "/extra-expenses", label: "Внештатные расходы", icon: ReceiptText, roles: ["admin", "operator", "finance"] },
   { to: "/finance", label: "Финансы", icon: CreditCard, roles: ["admin", "finance"] },
   { to: "/audit-logs", label: "Журнал", icon: ClipboardList, roles: ["admin"] },
   { to: "/settings", label: "Настройки", icon: Settings, roles: ["admin"] },

@@ -7,6 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import ExpenseCategory, Membership, MonthlyExpense, Operator, Teacher, Visit
+from app.services.extra_expenses import get_extra_expenses_total
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
 from app.services.practice import get_practice_income
 
@@ -124,7 +125,11 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
     teacher_earnings = get_teacher_earnings(db, date_from=date_from, date_to=date_to, include_cancelled=True)
     teacher_expense_total = quantize_money(Decimal(summary["teacher_earnings_total"]))
     serialized_expenses = [_serialize_expense(expense, teacher_expense_total) for expense in expenses]
-    expenses_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in serialized_expenses), Decimal("0")))
+    regular_expenses_total = quantize_money(
+        sum((Decimal(item["effective_amount"]) for item in serialized_expenses if not item["is_teacher_expense"]), Decimal("0"))
+    )
+    extra_expenses_total = get_extra_expenses_total(db, date_from=date_from, date_to=date_to)
+    expenses_total = quantize_money(regular_expenses_total + teacher_expense_total + extra_expenses_total)
     memberships_sold_total = quantize_money(Decimal(summary["memberships_sold_total"]))
     practice_income = quantize_money(Decimal(summary["practice_income"]))
     income_total = quantize_money(memberships_sold_total + practice_income)
@@ -144,6 +149,16 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
                 "is_teacher_expense": item["is_teacher_expense"],
             }
         )
+    if extra_expenses_total:
+        chart.append(
+            {
+                "category_id": 0,
+                "category_name": "Внештатные расходы",
+                "amount": extra_expenses_total,
+                "percentage": quantize_money((extra_expenses_total / expenses_total * Decimal("100")) if expenses_total else Decimal("0")),
+                "is_teacher_expense": False,
+            }
+        )
     chart.sort(key=lambda item: (item["amount"], item["category_name"]), reverse=True)
     return {
         "year": year,
@@ -153,8 +168,10 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
         "income_total": income_total,
         "memberships_sold_total": memberships_sold_total,
         "practice_income": practice_income,
+        "regular_expenses_total": regular_expenses_total,
         "expenses_total": expenses_total,
         "teacher_expense_total": teacher_expense_total,
+        "extra_expenses_total": extra_expenses_total,
         "net_result": net_result,
         "unpaid_expenses_count": len(unpaid),
         "unpaid_expenses_total": unpaid_total,
@@ -399,11 +416,13 @@ def get_summary(
         active_teachers_query = active_teachers_query.filter(Teacher.id == teacher_id)
     active_teachers_count = active_teachers_query.count()
     practice_income = get_practice_income(db, date_from=date_from, date_to=date_to)
+    extra_expenses_total = get_extra_expenses_total(db, date_from=date_from, date_to=date_to)
 
     return {
         "memberships_sold_total": quantize_money(memberships_sold_total),
         "practice_income": practice_income,
         "income_total": quantize_money(memberships_sold_total + practice_income),
+        "extra_expenses_total": extra_expenses_total,
         "completed_lessons_value": quantize_money(completed_lessons_value),
         "teacher_earnings_total": quantize_money(teacher_earnings_total),
         "school_earnings_total": quantize_money(school_earnings_total),

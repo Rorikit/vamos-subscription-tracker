@@ -73,6 +73,7 @@ export type FinanceSummary = {
   memberships_sold_total: string;
   practice_income: string;
   income_total: string;
+  extra_expenses_total: string;
   completed_lessons_value: string;
   teacher_earnings_total: string;
   school_earnings_total: string;
@@ -118,8 +119,10 @@ export type FinanceMonthlyReport = {
   income_total: string;
   memberships_sold_total: string;
   practice_income: string;
+  regular_expenses_total: string;
   expenses_total: string;
   teacher_expense_total: string;
+  extra_expenses_total: string;
   net_result: string;
   unpaid_expenses_count: number;
   unpaid_expenses_total: string;
@@ -257,4 +260,27 @@ export type PracticeRentalSummary = {
   income_total: string;
   rentals_count: number;
   average_check: string;
+};
+
+export type ExtraExpenseStatus = "active" | "cancelled";
+
+export type ExtraExpense = {
+  id: number;
+  title: string;
+  amount: string;
+  expense_date: string;
+  comment: string | null;
+  status: ExtraExpenseStatus;
+  created_by_user_id: number;
+  created_by_name: string | null;
+  cancelled_at: string | null;
+  cancelled_by_user_id: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExtraExpenseSummary = {
+  expenses_total: string;
+  expenses_count: number;
+  average_expense: string;
 };
