@@ -6,7 +6,6 @@ import { membershipTypeService } from "../api/membershipTypeService";
 import { participantService } from "../api/participantService";
 import { paymentService } from "../api/paymentService";
 import { teacherService } from "../api/teacherService";
-import { visitService } from "../api/visitService";
 import { Membership, Teacher } from "../types/domain";
 import { useDebouncedValue } from "./useDebouncedValue";
 
@@ -36,11 +35,16 @@ export function ParticipantForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-export function MembershipForm({ participantId, onDone }: { participantId?: number; onDone: () => void }) {
+export function MembershipForm({ participantId, membership, onDone }: { participantId?: number; membership?: Membership; onDone: () => void }) {
   const queryClient = useQueryClient();
-  const [selectedParticipant, setSelectedParticipant] = useState(participantId?.toString() ?? "");
-  const [membershipTypeId, setMembershipTypeId] = useState("");
-  const [teacherLessonRate, setTeacherLessonRate] = useState("");
+  const [selectedParticipant, setSelectedParticipant] = useState((participantId ?? membership?.participant_id)?.toString() ?? "");
+  const [membershipTypeId, setMembershipTypeId] = useState(membership?.membership_type_id.toString() ?? "");
+  const [totalLessons, setTotalLessons] = useState(membership?.total_lessons.toString() ?? "");
+  const [remainingLessons, setRemainingLessons] = useState(membership?.remaining_lessons.toString() ?? "");
+  const [price, setPrice] = useState(membership?.price ?? "");
+  const [teacherLessonRate, setTeacherLessonRate] = useState(membership?.teacher_lesson_rate ?? "");
+  const [startDate, setStartDate] = useState(membership?.start_date ?? "");
+  const [endDate, setEndDate] = useState(membership?.end_date ?? "");
   const [participantSearch, setParticipantSearch] = useState("");
   const debouncedSearch = useDebouncedValue(participantSearch, 300);
   const participants = useQuery({
@@ -49,7 +53,11 @@ export function MembershipForm({ participantId, onDone }: { participantId?: numb
   });
   const types = useQuery({ queryKey: ["membership-types"], queryFn: membershipTypeService.list });
   const selectedType = types.data?.find((type) => String(type.id) === membershipTypeId);
-  const lessonPrice = selectedType ? Number(selectedType.price) / selectedType.lesson_count : 0;
+  const lessonCount = Number(totalLessons || selectedType?.lesson_count || 0);
+  const coursePrice = Number(price || selectedType?.price || 0);
+  const lessonPrice = lessonCount > 0 ? coursePrice / lessonCount : 0;
+  const teacherTotal = Number(teacherLessonRate || 0) * lessonCount;
+  const schoolTotal = Math.max(coursePrice - teacherTotal, 0);
   function selectMembershipType(value: string) {
     setMembershipTypeId(value);
     const nextType = types.data?.find((type) => String(type.id) === value);
@@ -58,15 +66,29 @@ export function MembershipForm({ participantId, onDone }: { participantId?: numb
       return;
     }
     const defaultRate = Number(nextType.price) / nextType.lesson_count / 2;
+    setTotalLessons(String(nextType.lesson_count));
+    setRemainingLessons(String(nextType.lesson_count));
+    setPrice(String(nextType.price));
     setTeacherLessonRate(defaultRate.toFixed(2));
   }
   const mutation = useMutation({
-    mutationFn: () =>
-      membershipService.create({
-        participant_id: Number(selectedParticipant),
-        membership_type_id: Number(membershipTypeId),
-        teacher_lesson_rate: Number(teacherLessonRate),
-      }),
+    mutationFn: () => {
+      if (membership) {
+        return membershipService.update(membership.id, {
+          total_lessons: Number(totalLessons),
+          remaining_lessons: Number(remainingLessons),
+          price,
+          teacher_lesson_rate: teacherLessonRate,
+          start_date: startDate,
+          end_date: endDate,
+        });
+      }
+      return membershipService.create({
+          participant_id: Number(selectedParticipant),
+          membership_type_id: Number(membershipTypeId),
+          teacher_lesson_rate: Number(teacherLessonRate),
+        });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries();
       onDone();
@@ -75,22 +97,26 @@ export function MembershipForm({ participantId, onDone }: { participantId?: numb
 
   return (
     <form className="space-y-4" onSubmit={(event) => submit(event, mutation.mutate)}>
-      <Field label="Поиск участника" value={participantSearch} onChange={setParticipantSearch} />
-      <label className="block text-sm font-medium text-slate-700">
-        Участник
-        <select className="input mt-1" value={selectedParticipant} onChange={(event) => setSelectedParticipant(event.target.value)} required>
-          <option value="">Выберите участника</option>
-          {participants.data?.map((participant) => (
-            <option key={participant.id} value={participant.id}>
-              {participant.full_name} {participant.phone ? ` / ${participant.phone}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!participants.isLoading && participants.data?.length === 0 ? <p className="text-sm text-slate-500">Участники не найдены</p> : null}
+      {!participantId && !membership ? (
+        <>
+          <Field label="Поиск участника" value={participantSearch} onChange={setParticipantSearch} />
+          <label className="block text-sm font-medium text-slate-700">
+            Участник
+            <select className="input mt-1" value={selectedParticipant} onChange={(event) => setSelectedParticipant(event.target.value)} required>
+              <option value="">Выберите участника</option>
+              {participants.data?.map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  {participant.full_name} {participant.phone ? ` / ${participant.phone}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!participants.isLoading && participants.data?.length === 0 ? <p className="text-sm text-slate-500">Участники не найдены</p> : null}
+        </>
+      ) : null}
       <label className="block text-sm font-medium text-slate-700">
         Тип абонемента
-        <select className="input mt-1" value={membershipTypeId} onChange={(event) => selectMembershipType(event.target.value)} required>
+        <select className="input mt-1" value={membershipTypeId} onChange={(event) => selectMembershipType(event.target.value)} required disabled={Boolean(membership)}>
           <option value="">Выберите тип</option>
           {types.data?.map((type) => (
             <option key={type.id} value={type.id}>
@@ -99,68 +125,27 @@ export function MembershipForm({ participantId, onDone }: { participantId?: numb
           ))}
         </select>
       </label>
-      <Field label="Выплата преподавателю за занятие" value={teacherLessonRate} onChange={setTeacherLessonRate} type="number" required />
-      {selectedType ? (
-        <p className="text-xs text-slate-500">
-          Цена занятия по абонементу: {lessonPrice.toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 })}.
-          Выплата преподавателю не должна быть больше этой суммы.
+      <div className="rounded-md border border-slate-200 p-4">
+        <div className="font-bold text-ink">Основная информация</div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Field label="Всего занятий" value={totalLessons} onChange={setTotalLessons} type="number" required />
+          <Field label="Осталось занятий" value={remainingLessons} onChange={setRemainingLessons} type="number" required />
+          {membership ? <Field label="Дата начала" value={startDate} onChange={setStartDate} type="date" required /> : null}
+          {membership ? <Field label="Дата окончания" value={endDate} onChange={setEndDate} type="date" required /> : null}
+        </div>
+      </div>
+      <div className="rounded-md border border-slate-200 p-4">
+        <div className="font-bold text-ink">Финансовые условия</div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Field label="Стоимость абонемента" value={price} onChange={setPrice} type="number" required />
+          <Field label="Выплата преподавателю за занятие" value={teacherLessonRate} onChange={setTeacherLessonRate} type="number" required />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Цена занятия: {formatMoney(lessonPrice)}. Заработок преподавателя за весь абонемент: {formatMoney(teacherTotal)}.
+          Заработок школы: {formatMoney(schoolTotal)}. Backend проверит итоговые значения при сохранении.
         </p>
-      ) : null}
-      <SubmitButton label="Создать абонемент" pending={mutation.isPending} />
-      {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
-    </form>
-  );
-}
-
-export function WriteOffForm({ participantId, onDone }: { participantId?: number; onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const [selectedParticipant, setSelectedParticipant] = useState(participantId?.toString() ?? "");
-  const [participantSearch, setParticipantSearch] = useState("");
-  const [teacherId, setTeacherId] = useState("");
-  const debouncedSearch = useDebouncedValue(participantSearch, 300);
-  const participants = useQuery({
-    queryKey: ["participants", "write-off-form", debouncedSearch],
-    queryFn: () => participantService.list(debouncedSearch),
-  });
-  const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
-  const activeTeachers = teachers.data?.filter((teacher) => teacher.is_active) ?? [];
-  const mutation = useMutation({
-    mutationFn: () => visitService.writeOff({ participant_id: Number(selectedParticipant), teacher_id: Number(teacherId) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      onDone();
-    },
-  });
-
-  return (
-    <form className="space-y-4" onSubmit={(event) => submit(event, mutation.mutate)}>
-      {!participantId ? <Field label="Поиск участника" value={participantSearch} onChange={setParticipantSearch} /> : null}
-      <label className="block text-sm font-medium text-slate-700">
-        Участник
-        <select className="input mt-1" value={selectedParticipant} onChange={(event) => setSelectedParticipant(event.target.value)} required disabled={Boolean(participantId)}>
-          <option value="">Выберите участника</option>
-          {participants.data?.map((participant) => (
-            <option key={participant.id} value={participant.id}>
-              {participant.full_name} {participant.phone ? ` / ${participant.phone}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!participants.isLoading && participants.data?.length === 0 ? <p className="text-sm text-slate-500">Участники не найдены</p> : null}
-      <label className="block text-sm font-medium text-slate-700">
-        Преподаватель
-        <select className="input mt-1" value={teacherId} onChange={(event) => setTeacherId(event.target.value)} required>
-          <option value="">Выберите преподавателя</option>
-          {activeTeachers.map((teacher) => (
-            <option key={teacher.id} value={teacher.id}>
-              {teacher.full_name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button className="btn-primary w-full" type="submit" disabled={mutation.isPending || !teacherId || !selectedParticipant}>
-        {mutation.isPending ? "Сохранение..." : "Списать занятие"}
-      </button>
+      </div>
+      <SubmitButton label={membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} />
       {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
     </form>
   );
@@ -317,4 +302,8 @@ function SubmitButton({ label, pending }: { label: string; pending: boolean }) {
 function submit(event: FormEvent, action: () => void) {
   event.preventDefault();
   action();
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
 }

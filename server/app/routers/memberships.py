@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Membership, MembershipStatus, Operator
-from app.schemas.membership import MembershipCreate, MembershipRead
+from app.schemas.membership import MembershipCreate, MembershipRead, MembershipUpdate
 from app.services.audit import log_action, snapshot
 from app.services.auth import require_admin, require_operator_access
-from app.services.memberships import change_status, create_membership, serialize_membership, unfreeze
+from app.services.memberships import change_status, create_membership, serialize_membership, unfreeze, update_membership
 
 router = APIRouter(prefix="/memberships", tags=["memberships"])
 
@@ -41,6 +41,17 @@ def get_membership(membership_id: int, db: Session = Depends(get_db)):
 def post_membership(payload: MembershipCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     membership = create_membership(db, payload.participant_id, payload.membership_type_id, payload.teacher_lesson_rate)
     log_action(db, operator, "membership_created", "membership", membership.id, f"Абонемент #{membership.id}", after=snapshot(membership, ["participant_id", "membership_type_id", "total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "status"]))
+    return get_membership(membership.id, db)
+
+
+@router.patch("/{membership_id}", response_model=MembershipRead)
+def patch_membership(membership_id: int, payload: MembershipUpdate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
+    existing = db.get(Membership, membership_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    before = snapshot(existing, ["total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "start_date", "end_date", "status"])
+    membership = update_membership(db, membership_id, payload.model_dump(exclude_unset=True))
+    log_action(db, operator, "membership_updated", "membership", membership.id, f"Абонемент #{membership.id}", before=before, after=snapshot(membership, ["total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "start_date", "end_date", "status"]))
     return get_membership(membership.id, db)
 
 

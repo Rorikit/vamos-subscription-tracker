@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
-from app.services.memberships import cancel_visit, create_membership, write_off_visit
+from app.services.memberships import cancel_visit, create_membership, create_visit_from_completed_lesson
 
 
 class FinanceSnapshotTest(unittest.TestCase):
@@ -48,7 +48,7 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.db.close()
 
     def test_visit_financial_snapshot_and_return(self) -> None:
-        first = write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        first = create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         self.assertEqual(first.lesson_price, Decimal("1800.00"))
         self.assertEqual(first.teacher_lesson_rate, Decimal("900.00"))
         self.assertEqual(first.teacher_earning, Decimal("900.00"))
@@ -61,7 +61,7 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.db.refresh(first)
         self.assertEqual(first.teacher_earning, Decimal("900.00"))
 
-        second = write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        second = create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         self.assertEqual(second.teacher_lesson_rate, Decimal("1080.00"))
         self.assertEqual(second.teacher_earning, Decimal("1080.00"))
         self.assertEqual(second.school_earning, Decimal("720.00"))
@@ -81,7 +81,7 @@ class FinanceSnapshotTest(unittest.TestCase):
             cancel_visit(self.db, first.id)
 
     def test_teacher_and_period_filters(self) -> None:
-        write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         tomorrow = date.today() + timedelta(days=1)
 
         self.assertEqual(get_summary(self.db, date_from=tomorrow)["completed_visits_count"], 0)
@@ -110,8 +110,8 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.db.add(Payment(participant_id=second_participant.id, membership_id=second_membership.id, amount=Decimal("8000"), payment_date=date.today(), payment_method="cash"))
         self.db.commit()
 
-        write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
-        write_off_visit(self.db, second_participant.id, second_membership.id, second_teacher.id, date.today())
+        create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        create_visit_from_completed_lesson(self.db, second_participant.id, second_membership.id, second_teacher.id, date.today())
 
         all_summary = get_summary(self.db)
         teacher_summary = get_summary(self.db, teacher_id=self.teacher_id)
@@ -128,11 +128,16 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.db.commit()
 
         with self.assertRaises(HTTPException):
-            write_off_visit(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+            create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
 
     def test_membership_teacher_rate_cannot_exceed_lesson_price(self) -> None:
         with self.assertRaises(HTTPException):
             create_membership(self.db, self.participant_id, self.db.get(Membership, self.membership_id).membership_type_id, Decimal("2000"))
+
+    def test_duplicate_active_membership_type_is_rejected(self) -> None:
+        with self.assertRaises(HTTPException) as context:
+            create_membership(self.db, self.participant_id, self.db.get(Membership, self.membership_id).membership_type_id, Decimal("900"))
+        self.assertEqual(context.exception.status_code, 409)
 
 
 if __name__ == "__main__":

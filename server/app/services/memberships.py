@@ -61,6 +61,21 @@ def get_active_membership(db: Session, participant_id: int) -> Membership | None
     return None
 
 
+def get_active_membership_by_type(db: Session, participant_id: int, membership_type_id: int) -> Membership | None:
+    memberships = (
+        db.query(Membership)
+        .filter(Membership.participant_id == participant_id, Membership.membership_type_id == membership_type_id)
+        .order_by(Membership.start_date.desc(), Membership.id.desc())
+        .all()
+    )
+    for membership in memberships:
+        refresh_expired_status(db, membership)
+        if is_currently_active(membership):
+            return membership
+    db.commit()
+    return None
+
+
 def create_membership(db: Session, participant_id: int, membership_type_id: int, teacher_lesson_rate: Decimal | None = None) -> Membership:
     participant = db.get(Participant, participant_id)
     membership_type = db.get(MembershipType, membership_type_id)
@@ -70,6 +85,9 @@ def create_membership(db: Session, participant_id: int, membership_type_id: int,
         raise HTTPException(status_code=404, detail="Тип абонемента не найден или отключен")
     if membership_type.lesson_count <= 0:
         raise HTTPException(status_code=400, detail="В типе абонемента некорректное количество занятий")
+    existing = get_active_membership_by_type(db, participant_id, membership_type_id)
+    if existing:
+        raise HTTPException(status_code=409, detail="У участника уже есть активный абонемент этого типа. Откройте редактирование текущего абонемента.")
 
     start = date.today()
     lesson_price = quantize_money(Decimal(membership_type.price) / Decimal(membership_type.lesson_count))
@@ -95,7 +113,40 @@ def create_membership(db: Session, participant_id: int, membership_type_id: int,
     return membership
 
 
-def write_off_visit(
+def validate_membership_financials(membership: Membership) -> None:
+    if membership.total_lessons <= 0:
+        raise HTTPException(status_code=400, detail="В абонементе некорректное количество занятий")
+    if membership.remaining_lessons < 0:
+        raise HTTPException(status_code=400, detail="Остаток занятий не может быть отрицательным")
+    if membership.remaining_lessons > membership.total_lessons:
+        raise HTTPException(status_code=400, detail="Остаток занятий не может быть больше общего количества")
+    if membership.end_date < membership.start_date:
+        raise HTTPException(status_code=400, detail="Дата окончания должна быть позже даты начала")
+    lesson_price = quantize_money(Decimal(membership.price) / Decimal(membership.total_lessons))
+    rate = quantize_money(Decimal(membership.teacher_lesson_rate or 0))
+    if rate > lesson_price:
+        raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть больше цены занятия")
+
+
+def update_membership(db: Session, membership_id: int, data: dict) -> Membership:
+    membership = db.get(Membership, membership_id)
+    if not membership:
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    for key, value in data.items():
+        setattr(membership, key, value)
+    validate_membership_financials(membership)
+    if membership.remaining_lessons == 0 and membership.status == MembershipStatus.ACTIVE:
+        membership.status = MembershipStatus.FINISHED
+    elif membership.remaining_lessons > 0 and membership.status == MembershipStatus.FINISHED and membership.end_date >= date.today():
+        membership.status = MembershipStatus.ACTIVE
+    refresh_expired_status(db, membership)
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+    return membership
+
+
+def create_visit_from_completed_lesson(
     db: Session,
     participant_id: int,
     membership_id: int | None,
@@ -119,7 +170,7 @@ def write_off_visit(
     if not membership:
         raise HTTPException(status_code=400, detail="У участника нет активного абонемента")
     if membership.status in {MembershipStatus.FROZEN, MembershipStatus.CANCELLED, MembershipStatus.EXPIRED}:
-        raise HTTPException(status_code=400, detail="Абонемент нельзя списать")
+        raise HTTPException(status_code=400, detail="Абонемент нельзя использовать для проведения занятия")
     if membership.remaining_lessons <= 0:
         raise HTTPException(status_code=400, detail="Занятия закончились")
 

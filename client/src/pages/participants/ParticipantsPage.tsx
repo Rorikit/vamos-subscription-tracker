@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, Ticket, UserPlus } from "lucide-react";
+import { Ticket, UserPlus } from "lucide-react";
 
 import { participantService } from "../../shared/api/participantService";
 import { toDate } from "../../shared/api/client";
-import { MembershipForm, ParticipantForm, WriteOffForm } from "../../shared/ui/Forms";
+import { MembershipForm, ParticipantForm } from "../../shared/ui/Forms";
 import { Modal } from "../../shared/ui/Modal";
 import { StatusBadge } from "../../shared/ui/StatusBadge";
 import { useDebouncedValue } from "../../shared/ui/useDebouncedValue";
 
 export function ParticipantsPage() {
-  const [modal, setModal] = useState<"participant" | "membership" | "visit" | null>(null);
+  const [modal, setModal] = useState<"participant" | "membership" | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const { data, isLoading } = useQuery({
@@ -28,7 +28,6 @@ export function ParticipantsPage() {
         </div>
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={() => setModal("membership")}><Ticket size={18} /> Создать абонемент</button>
-          <button className="btn-secondary" onClick={() => setModal("visit")}><Plus size={18} /> Списать занятие</button>
           <button className="btn-primary" onClick={() => setModal("participant")}><UserPlus size={18} /> Создать участника</button>
         </div>
       </div>
@@ -69,10 +68,6 @@ export function ParticipantsPage() {
       <Modal title="Создать абонемент" open={modal === "membership"} onClose={() => setModal(null)}>
         <MembershipForm onDone={() => setModal(null)} />
       </Modal>
-      <Modal title="Списать занятие" open={modal === "visit"} onClose={() => setModal(null)}>
-        <WriteOffForm onDone={() => setModal(null)} />
-      </Modal>
     </div>
   );
 }
-

@@ -13,6 +13,15 @@ class MembershipCreate(BaseModel):
     teacher_lesson_rate: Decimal = Field(ge=0)
 
 
+class MembershipUpdate(BaseModel):
+    total_lessons: int | None = Field(default=None, gt=0)
+    remaining_lessons: int | None = Field(default=None, ge=0)
+    price: Decimal | None = Field(default=None, ge=0)
+    teacher_lesson_rate: Decimal | None = Field(default=None, ge=0)
+    start_date: date | None = None
+    end_date: date | None = None
+
+
 class MembershipRead(ApiModel):
     id: int
     participant_id: int

@@ -16,7 +16,7 @@ from app.models import (
     Teacher,
 )
 from app.schemas.schedule import ScheduleEventCreate, ScheduleEventUpdate
-from app.services.memberships import cancel_visit, write_off_visit
+from app.services.memberships import cancel_visit, create_visit_from_completed_lesson
 from app.services.schedule_conflicts import find_teacher_conflicts
 from app.services.schedule_recurrence import generate_occurrences, make_recurrence_group_id, normalize_recurrence_rule
 
@@ -208,7 +208,7 @@ def complete_event(db: Session, event_id: int, attendance: list[dict]) -> Schedu
                 raise HTTPException(status_code=400, detail="Для участника уже создано списание")
             item.attendance_status = status
             if status == AttendanceStatus.ATTENDED:
-                visit = write_off_visit(db, item.participant_id, None, event.teacher_id, event.starts_at.date(), commit=False)
+                visit = create_visit_from_completed_lesson(db, item.participant_id, None, event.teacher_id, event.starts_at.date(), commit=False)
                 item.visit_id = visit.id
             db.add(item)
         event.status = ScheduleEventStatus.COMPLETED

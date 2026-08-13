@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { CreditCard, Pause, Play, Plus, Ticket, XCircle } from "lucide-react";
+import { CreditCard, Pause, Play, Ticket, XCircle } from "lucide-react";
 
 import { membershipService } from "../../shared/api/membershipService";
 import { participantService } from "../../shared/api/participantService";
 import { paymentService } from "../../shared/api/paymentService";
 import { toCurrency, toDate } from "../../shared/api/client";
 import { visitService } from "../../shared/api/visitService";
-import { MembershipForm, PaymentForm, WriteOffForm } from "../../shared/ui/Forms";
+import { MembershipForm, PaymentForm } from "../../shared/ui/Forms";
 import { Modal } from "../../shared/ui/Modal";
 import { StatCard } from "../../shared/ui/StatCard";
 import { StatusBadge } from "../../shared/ui/StatusBadge";
@@ -16,13 +16,14 @@ import { StatusBadge } from "../../shared/ui/StatusBadge";
 export function ParticipantCardPage() {
   const id = Number(useParams().id);
   const queryClient = useQueryClient();
-  const [modal, setModal] = useState<"visit" | "payment" | "membership" | null>(null);
+  const [modal, setModal] = useState<"payment" | "membership" | null>(null);
   const participant = useQuery({ queryKey: ["participant", id], queryFn: () => participantService.get(id) });
   const memberships = useQuery({ queryKey: ["memberships"], queryFn: () => membershipService.list("all") });
   const visits = useQuery({ queryKey: ["visits", id], queryFn: () => visitService.byParticipant(id) });
   const payments = useQuery({ queryKey: ["payments", id], queryFn: () => paymentService.byParticipant(id) });
   const participantMemberships = memberships.data?.filter((membership) => membership.participant_id === id) ?? [];
   const current = participantMemberships.find((membership) => membership.is_currently_active) ?? participantMemberships[0];
+  const activeMembership = participantMemberships.find((membership) => membership.is_currently_active);
   const statusMutation = useMutation({
     mutationFn: ({ action, membershipId }: { action: "freeze" | "unfreeze" | "cancel"; membershipId: number }) =>
       action === "freeze" ? membershipService.freeze(membershipId) : action === "unfreeze" ? membershipService.unfreeze(membershipId) : membershipService.cancel(membershipId),
@@ -39,9 +40,8 @@ export function ParticipantCardPage() {
           <p className="mt-1 text-sm text-slate-500">{participant.data?.phone} {participant.data?.comment ? ` / ${participant.data.comment}` : ""}</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => setModal("membership")}><Ticket size={18} /> Создать абонемент</button>
+          <button className="btn-secondary" onClick={() => setModal("membership")}><Ticket size={18} /> {activeMembership ? "Редактировать абонемент" : "Создать абонемент"}</button>
           <button className="btn-secondary" onClick={() => setModal("payment")} disabled={!participantMemberships.length}><CreditCard size={18} /> Добавить оплату</button>
-          <button className="btn-primary" onClick={() => setModal("visit")}><Plus size={18} /> Списать занятие</button>
         </div>
       </div>
 
@@ -56,8 +56,14 @@ export function ParticipantCardPage() {
         <section className="panel p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-ink">Текущий активный абонемент</h2>
+              <h2 className="font-bold text-ink">{current.is_currently_active ? "Текущий активный абонемент" : "Последний абонемент"}</h2>
               <p className="mt-1 text-sm text-slate-500">{current.membership_type?.name}, {toDate(current.start_date)} - {toDate(current.end_date)}</p>
+              <div className="mt-3 grid grid-cols-4 gap-3 text-sm">
+                <Info label="Осталось" value={`${current.remaining_lessons} из ${current.total_lessons}`} />
+                <Info label="Стоимость" value={toCurrency(current.price)} />
+                <Info label="Выплата / занятие" value={toCurrency(current.teacher_lesson_rate)} />
+                <Info label="Выплата всего" value={toCurrency(Number(current.teacher_lesson_rate) * current.total_lessons)} />
+              </div>
             </div>
             <div className="flex gap-2">
               {current.status === "frozen" ? (
@@ -138,14 +144,11 @@ export function ParticipantCardPage() {
         </table>
       </section>
 
-      <Modal title="Списать занятие" open={modal === "visit"} onClose={() => setModal(null)}>
-        <WriteOffForm participantId={id} onDone={() => setModal(null)} />
-      </Modal>
       <Modal title="Добавить оплату" open={modal === "payment"} onClose={() => setModal(null)}>
         <PaymentForm participantId={id} memberships={participantMemberships} onDone={() => setModal(null)} />
       </Modal>
-      <Modal title="Создать абонемент" open={modal === "membership"} onClose={() => setModal(null)}>
-        <MembershipForm participantId={id} onDone={() => setModal(null)} />
+      <Modal title={activeMembership ? "Редактировать абонемент" : "Создать абонемент"} open={modal === "membership"} onClose={() => setModal(null)}>
+        <MembershipForm participantId={id} membership={activeMembership} onDone={() => setModal(null)} />
       </Modal>
     </div>
   );
@@ -153,4 +156,13 @@ export function ParticipantCardPage() {
 
 function SectionTitle({ title }: { title: string }) {
   return <div className="border-b border-slate-100 px-5 py-4 font-bold text-ink">{title}</div>;
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-slate-50 p-3">
+      <div className="text-xs font-semibold uppercase text-slate-400">{label}</div>
+      <div className="mt-1 font-bold text-ink">{value}</div>
+    </div>
+  );
 }

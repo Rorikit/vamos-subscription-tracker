@@ -1,16 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
-
 from app.schemas.common import ApiModel, MembershipTypeSnapshot, ParticipantSnapshot, TeacherSnapshot
-
-
-class VisitWriteOff(BaseModel):
-    participant_id: int
-    membership_id: int | None = None
-    teacher_id: int
-    visit_date: date | None = None
 
 
 class VisitRead(ApiModel):

@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, XCircle } from "lucide-react";
 
@@ -11,6 +11,7 @@ import { useDebouncedValue } from "../../shared/ui/useDebouncedValue";
 import type { AttendanceStatus, ParticipantListItem, ScheduleEvent, ScheduleEventStatus, ScheduleEventType } from "../../shared/types/domain";
 
 type ViewMode = "day" | "week" | "month";
+type EventDraft = { date: string; startTime: string; endTime: string };
 
 const statusLabels: Record<ScheduleEventStatus, string> = {
   scheduled: "Запланировано",
@@ -42,6 +43,7 @@ export function SchedulePage() {
   const [status, setStatus] = useState<ScheduleEventStatus | "">("");
   const [eventType, setEventType] = useState<ScheduleEventType | "">("");
   const [editorEvent, setEditorEvent] = useState<ScheduleEvent | "new" | null>(null);
+  const [eventDraft, setEventDraft] = useState<EventDraft | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [completeEvent, setCompleteEvent] = useState<ScheduleEvent | null>(null);
 
@@ -61,6 +63,14 @@ export function SchedulePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["schedule-events"] });
       setSelectedEvent(null);
+    },
+  });
+  const cancelMutation = useMutation({
+    mutationFn: (eventId: number) => scheduleService.cancel(eventId),
+    onSuccess: (event) => {
+      queryClient.invalidateQueries({ queryKey: ["schedule-events"] });
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      setSelectedEvent(event);
     },
   });
   const returnMutation = useMutation({
@@ -89,7 +99,7 @@ export function SchedulePage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">Расписание</h1>
-          <p className="mt-1 text-sm text-slate-500">Планирование занятий, проведение, списания и возвраты из календаря.</p>
+          <p className="mt-1 text-sm text-slate-500">Планирование занятий, проведение и возвраты из календаря.</p>
         </div>
         <button className="btn-primary" onClick={() => setEditorEvent("new")}>
           <CalendarPlus size={18} />
@@ -145,7 +155,7 @@ export function SchedulePage() {
       </section>
 
       {events.isError ? <ErrorBlock onRetry={() => events.refetch()} /> : null}
-      {events.isLoading ? <LoadingGrid /> : <CalendarCanvas mode={mode} start={range.start} events={visibleEvents} teacherColor={teacherColor} onOpen={setSelectedEvent} onCreate={(date) => { setAnchorDate(formatDateInput(date)); setEditorEvent("new"); }} />}
+      {events.isLoading ? <LoadingGrid /> : <CalendarCanvas mode={mode} start={range.start} events={visibleEvents} teacherColor={teacherColor} onOpen={setSelectedEvent} onCreate={(date) => { setAnchorDate(formatDateInput(date)); setEventDraft(makeDraft(date)); setEditorEvent("new"); }} />}
 
       {!events.isLoading && visibleEvents.length === 0 ? (
         <div className="panel p-10 text-center">
@@ -155,20 +165,21 @@ export function SchedulePage() {
       ) : null}
 
       <Modal title={editorEvent === "new" ? "Создать занятие" : "Редактировать занятие"} open={editorEvent !== null} onClose={() => setEditorEvent(null)}>
-        <ScheduleEventForm event={editorEvent && editorEvent !== "new" ? editorEvent : undefined} anchorDate={anchorDate} onDone={() => { setEditorEvent(null); queryClient.invalidateQueries({ queryKey: ["schedule-events"] }); }} />
+        <ScheduleEventForm event={editorEvent && editorEvent !== "new" ? editorEvent : undefined} anchorDate={anchorDate} draft={eventDraft} onDone={() => { setEditorEvent(null); setEventDraft(null); queryClient.invalidateQueries({ queryKey: ["schedule-events"] }); }} />
       </Modal>
-      <Modal title="Карточка занятия" open={selectedEvent !== null} onClose={() => setSelectedEvent(null)}>
+      <EventDrawer open={selectedEvent !== null} onClose={() => setSelectedEvent(null)}>
         {selectedEvent ? (
           <EventCard
             event={selectedEvent}
             onEdit={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onMove={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onDelete={() => window.confirm("Удалить занятие из расписания?") && deleteMutation.mutate(selectedEvent.id)}
+            onCancel={() => window.confirm(`Отменить занятие?\n\n${timeRange(selectedEvent.starts_at, selectedEvent.ends_at)}\n${selectedEvent.teacher?.full_name ?? ""}\n${selectedEvent.participants.length} участник(ов)`) && cancelMutation.mutate(selectedEvent.id)}
             onComplete={() => { setCompleteEvent(selectedEvent); setSelectedEvent(null); }}
             onReturn={(participantId) => returnMutation.mutate({ eventId: selectedEvent.id, participantId })}
           />
         ) : null}
-      </Modal>
+      </EventDrawer>
       <Modal title="Отметить проведение занятия" open={completeEvent !== null} onClose={() => setCompleteEvent(null)}>
         {completeEvent ? <CompleteEventForm event={completeEvent} onDone={(event) => { setCompleteEvent(null); setSelectedEvent(event); queryClient.invalidateQueries({ queryKey: ["schedule-events"] }); }} /> : null}
       </Modal>
@@ -179,18 +190,25 @@ export function SchedulePage() {
 function CalendarCanvas({ mode, start, events, teacherColor, onOpen, onCreate }: { mode: ViewMode; start: Date; events: ScheduleEvent[]; teacherColor: (id: number) => string; onOpen: (event: ScheduleEvent) => void; onCreate: (date: Date) => void }) {
   if (mode === "month") return <MonthView start={start} events={events} teacherColor={teacherColor} onOpen={onOpen} onCreate={onCreate} />;
   const days = mode === "day" ? [start] : Array.from({ length: 7 }, (_, index) => addDays(start, index));
+  const hours = Array.from({ length: 14 }, (_, index) => 8 + index);
   return (
-    <section className="panel overflow-hidden">
+    <section className="panel flex max-h-[calc(100vh-270px)] min-h-[460px] flex-col overflow-hidden">
       <div className={`grid ${mode === "day" ? "grid-cols-1" : "grid-cols-7"} border-b border-slate-100 bg-slate-50`}>
         {days.map((day) => <button key={day.toISOString()} className="px-3 py-3 text-left text-sm font-bold text-ink" onClick={() => onCreate(day)}>{weekday(day)} · {day.getDate()}</button>)}
       </div>
-      <div className={`grid ${mode === "day" ? "grid-cols-1" : "grid-cols-7"} min-h-[620px] divide-x divide-slate-100`}>
+      <div className={`grid flex-1 ${mode === "day" ? "grid-cols-1" : "grid-cols-7"} divide-x divide-slate-100 overflow-auto`}>
         {days.map((day) => {
           const dayEvents = events.filter((event) => sameDay(new Date(event.starts_at), day)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
           return (
             <div key={day.toISOString()} className="space-y-2 p-3">
               {dayEvents.map((event) => <EventPill key={event.id} event={event} color={event.color || teacherColor(event.teacher_id)} onOpen={onOpen} />)}
-              {dayEvents.length === 0 ? <button className="h-24 w-full rounded-md border border-dashed border-slate-200 text-sm text-slate-400" onClick={() => onCreate(day)}>Создать занятие</button> : null}
+              <div className="grid grid-cols-2 gap-2">
+                {hours.map((hour) => {
+                  const slot = new Date(day);
+                  slot.setHours(hour, 0, 0, 0);
+                  return <button key={hour} className="h-10 rounded-md border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:border-mint hover:text-mint" onClick={() => onCreate(slot)}>{String(hour).padStart(2, "0")}:00</button>;
+                })}
+              </div>
             </div>
           );
         })}
@@ -241,12 +259,12 @@ function EventPill({ event, color, compact = false, onOpen }: { event: ScheduleE
   );
 }
 
-function ScheduleEventForm({ event, anchorDate, onDone }: { event?: ScheduleEvent; anchorDate: string; onDone: () => void }) {
+function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: ScheduleEvent; anchorDate: string; draft?: EventDraft | null; onDone: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(event?.title ?? "");
-  const [date, setDate] = useState(event ? formatDateInput(new Date(event.starts_at)) : anchorDate);
-  const [startTime, setStartTime] = useState(event ? formatTimeInput(new Date(event.starts_at)) : "10:00");
-  const [endTime, setEndTime] = useState(event ? formatTimeInput(new Date(event.ends_at)) : "11:00");
+  const [date, setDate] = useState(event ? formatDateInput(new Date(event.starts_at)) : draft?.date ?? anchorDate);
+  const [startTime, setStartTime] = useState(event ? formatTimeInput(new Date(event.starts_at)) : draft?.startTime ?? "10:00");
+  const [endTime, setEndTime] = useState(event ? formatTimeInput(new Date(event.ends_at)) : draft?.endTime ?? "11:00");
   const [teacherId, setTeacherId] = useState(event?.teacher_id.toString() ?? "");
   const [eventType, setEventType] = useState<ScheduleEventType>(event?.event_type ?? "group");
   const [location, setLocation] = useState(event?.location ?? "");
@@ -361,7 +379,7 @@ function ParticipantChoice({ participant, checked, onToggle }: { participant: Pa
   );
 }
 
-function EventCard({ event, onEdit, onMove, onDelete, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onDelete: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
+function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onDelete: () => void; onCancel: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
   return (
@@ -381,7 +399,7 @@ function EventCard({ event, onEdit, onMove, onDelete, onComplete, onReturn }: { 
           <div key={item.id} className="flex items-center justify-between border-b border-slate-100 px-3 py-2 last:border-b-0">
             <div>
               <div className="font-semibold text-ink">{item.participant?.full_name}</div>
-              <div className="text-xs text-slate-500">{attendanceLabels[item.attendance_status]} {item.visit?.is_cancelled ? "· списание возвращено" : ""}</div>
+              <div className="text-xs text-slate-500">{attendanceLabels[item.attendance_status]} {item.visit?.is_cancelled ? "· занятие возвращено" : ""}</div>
             </div>
             {event.status === "completed" && item.visit_id && !item.visit?.is_cancelled && item.attendance_status === "attended" ? (
               <button className="btn-secondary h-9" onClick={() => window.confirm("Вернуть занятие участнику?") && onReturn(item.participant_id)}>
@@ -397,6 +415,7 @@ function EventCard({ event, onEdit, onMove, onDelete, onComplete, onReturn }: { 
             <button className="btn-primary" onClick={onComplete}><CheckCircle2 size={17} /> Отметить проведение</button>
             <button className="btn-secondary" onClick={onEdit}>Редактировать</button>
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
+            <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> Отменить занятие</button>
             <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button>
           </>
         ) : null}
@@ -414,7 +433,7 @@ function CompleteEventForm({ event, onDone }: { event: ScheduleEvent; onDone: (e
   return (
     <div className="space-y-4">
       <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">
-        Будет списано занятий: {Object.values(attendance).filter((status) => status === "attended").length}. Финальный расчет выполнит backend.
+        Будет проведено занятий: {Object.values(attendance).filter((status) => status === "attended").length}. Финальный расчет выполнит backend.
       </div>
       {event.participants.map((item) => (
         <label key={item.id} className="block text-sm font-medium text-slate-700">
@@ -493,4 +512,36 @@ function rangeTitle(date: Date, mode: ViewMode) {
 function timeRange(start: string, end: string) {
   const formatter = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
   return `${formatter.format(new Date(start))}-${formatter.format(new Date(end))}`;
+}
+
+function makeDraft(date: Date): EventDraft {
+  const start = new Date(date);
+  if (start.getHours() === 0 && start.getMinutes() === 0) {
+    start.setHours(10, 0, 0, 0);
+  }
+  const end = new Date(start);
+  end.setMinutes(end.getMinutes() + 60);
+  return { date: formatDateInput(start), startTime: formatTimeInput(start), endTime: formatTimeInput(end) };
+}
+
+function EventDrawer({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/30" onClick={onClose}>
+      <aside className="h-full w-[460px] max-w-[calc(100vw-32px)] overflow-y-auto bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-4 flex justify-end">
+          <button className="btn-secondary h-9 px-3" onClick={onClose}>Закрыть</button>
+        </div>
+        {children}
+      </aside>
+    </div>
+  );
 }
