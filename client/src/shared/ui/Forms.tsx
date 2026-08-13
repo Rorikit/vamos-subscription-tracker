@@ -265,6 +265,7 @@ export function TeacherForm({ teacher, onDone }: { teacher?: Teacher; onDone: ()
         <input checked={isActive} type="checkbox" onChange={(event) => setIsActive(event.target.checked)} />
         Активен
       </label>
+      {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
       <SubmitButton label={teacher ? "Сохранить преподавателя" : "Создать преподавателя"} pending={mutation.isPending} />
     </form>
   );

@@ -113,7 +113,8 @@ def health():
 
 
 def migrate_local_sqlite(db) -> None:
-    inspector = inspect(engine)
+    bind = db.get_bind()
+    inspector = inspect(bind)
     table_names = inspector.get_table_names()
 
     if "operators" in table_names:
@@ -138,6 +139,48 @@ def migrate_local_sqlite(db) -> None:
             )
             db.commit()
 
+    if "teachers" in table_names:
+        teacher_columns = {column["name"] for column in inspector.get_columns("teachers")}
+        if "teacher_share_percent" in teacher_columns:
+            db.execute(text("pragma foreign_keys=off"))
+            db.execute(
+                text(
+                    """
+                    create table teachers_new (
+                        id integer not null primary key,
+                        full_name varchar(255) not null,
+                        phone varchar(64),
+                        comment text,
+                        is_active boolean not null,
+                        created_at datetime not null,
+                        updated_at datetime not null
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    """
+                    insert into teachers_new (id, full_name, phone, comment, is_active, created_at, updated_at)
+                    select
+                        id,
+                        full_name,
+                        phone,
+                        comment,
+                        coalesce(is_active, 1),
+                        coalesce(created_at, current_timestamp),
+                        coalesce(updated_at, current_timestamp)
+                    from teachers
+                    """
+                )
+            )
+            db.execute(text("drop table teachers"))
+            db.execute(text("alter table teachers_new rename to teachers"))
+            db.execute(text("create index if not exists ix_teachers_id on teachers (id)"))
+            db.execute(text("create index if not exists ix_teachers_full_name on teachers (full_name)"))
+            db.execute(text("pragma foreign_keys=on"))
+            db.commit()
+
     if "visits" not in table_names:
         return
 
@@ -150,7 +193,7 @@ def migrate_local_sqlite(db) -> None:
             db.execute(text("update visits set teacher_id = :teacher_id where teacher_id is null"), {"teacher_id": teacher_id})
         db.commit()
 
-    inspector = inspect(engine)
+    inspector = inspect(bind)
     visit_columns = {column["name"] for column in inspector.get_columns("visits")}
     visit_finance_columns = {
         "lesson_price": "numeric(10, 2)",
