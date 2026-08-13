@@ -220,7 +220,7 @@ def complete_event(db: Session, event_id: int, attendance: list[dict]) -> Schedu
         for item in event.participants:
             status = attendance_by_participant.get(item.participant_id, AttendanceStatus.ATTENDED)
             if item.visit_id:
-                raise HTTPException(status_code=400, detail="Для участника уже создано списание")
+                raise HTTPException(status_code=400, detail="Для участника уже создано посещение")
             item.attendance_status = status
             if status == AttendanceStatus.ATTENDED:
                 visit = create_visit_from_completed_lesson(db, item.participant_id, None, event.teacher_id, event.starts_at.date(), commit=False)

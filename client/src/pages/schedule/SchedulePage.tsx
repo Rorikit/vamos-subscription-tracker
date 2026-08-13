@@ -276,10 +276,19 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
   const debouncedSearch = useDebouncedValue(participantSearch, 300);
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
   const participants = useQuery({ queryKey: ["participants", "schedule-form", debouncedSearch], queryFn: () => participantService.list(debouncedSearch) });
+  const startsAt = useMemo(() => toIsoDateTime(date, startTime), [date, startTime]);
+  const endsAt = useMemo(() => toIsoDateTime(date, endTime), [date, endTime]);
+  const timeIsValid = Boolean(startsAt && endsAt && new Date(endsAt).getTime() > new Date(startsAt).getTime());
+  const conflictCheck = useQuery({
+    queryKey: ["schedule-conflicts", teacherId, startsAt, endsAt, event?.id],
+    queryFn: () => scheduleService.conflicts({ teacher_id: Number(teacherId), starts_at: startsAt!, ends_at: endsAt!, exclude_event_id: event?.id }),
+    enabled: Boolean(teacherId && startsAt && endsAt && timeIsValid),
+    retry: false,
+  });
   const mutation = useMutation<unknown, Error>({
     mutationFn: () => {
-      const starts_at = new Date(`${date}T${startTime}`).toISOString();
-      const ends_at = new Date(`${date}T${endTime}`).toISOString();
+      const starts_at = startsAt!;
+      const ends_at = endsAt!;
       if (event) {
         return scheduleService.update(event.id, { title, description, teacher_id: Number(teacherId), starts_at, ends_at, event_type: eventType, location, color, participant_ids: participantIds });
       }
@@ -302,6 +311,25 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
     },
   });
   const selectedParticipants = participants.data?.filter((participant) => participantIds.includes(participant.id)) ?? [];
+  const activeTeacher = teachers.data?.find((teacher) => String(teacher.id) === teacherId);
+  const validationIssues = [
+    !title.trim() ? "Введите название занятия." : null,
+    !teacherId ? "Выберите преподавателя." : null,
+    teacherId && !activeTeacher ? "Выбранный преподаватель не найден в списке." : null,
+    activeTeacher && !activeTeacher.is_active ? "Выбранный преподаватель отключен. Выберите активного преподавателя." : null,
+    !date ? "Выберите дату занятия." : null,
+    !startTime ? "Выберите время начала." : null,
+    !endTime ? "Выберите время окончания." : null,
+    startsAt && endsAt && !timeIsValid ? "Время окончания должно быть позже времени начала." : null,
+    eventType !== "other" && participantIds.length === 0 ? "Добавьте хотя бы одного участника для группового или индивидуального занятия." : null,
+    conflictCheck.data?.length ? `Преподаватель уже занят: ${conflictCheck.data[0].title}, ${timeRange(conflictCheck.data[0].starts_at, conflictCheck.data[0].ends_at)}.` : null,
+  ].filter(Boolean) as string[];
+  const warnings = [
+    selectedParticipants.some((participant) => !participant.active_membership_id)
+      ? "У части участников нет активного абонемента. Занятие можно запланировать, но при проведении нужно будет оформить абонемент."
+      : null,
+  ].filter(Boolean) as string[];
+  const canSubmit = validationIssues.length === 0 && !conflictCheck.isFetching;
 
   function submit(formEvent: FormEvent) {
     formEvent.preventDefault();
@@ -356,13 +384,35 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
           {participants.data?.map((participant) => <ParticipantChoice key={participant.id} participant={participant} checked={participantIds.includes(participant.id)} onToggle={() => setParticipantIds((ids) => ids.includes(participant.id) ? ids.filter((id) => id !== participant.id) : [...ids, participant.id])} />)}
           {!participants.isLoading && participants.data?.length === 0 ? <div className="text-sm text-slate-500">Участники не найдены</div> : null}
         </div>
-        {selectedParticipants.some((participant) => !participant.active_membership_id) ? <p className="mt-2 text-xs text-amber-700">У части участников нет активного абонемента. Создать занятие можно, но при проведении backend не спишет занятие без абонемента.</p> : null}
       </div>
-      {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
-      <button className="btn-primary w-full" disabled={mutation.isPending || !title || !teacherId || (eventType !== "other" && participantIds.length === 0)}>
+      <ValidationPanel issues={validationIssues} warnings={warnings} checking={conflictCheck.isFetching} />
+      {mutation.error ? <p className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{mutation.error.message}</p> : null}
+      <button className="btn-primary w-full" disabled={mutation.isPending || !canSubmit}>
         {mutation.isPending ? "Сохранение..." : event ? "Сохранить занятие" : "Создать занятие"}
       </button>
     </form>
+  );
+}
+
+function ValidationPanel({ issues, warnings, checking }: { issues: string[]; warnings: string[]; checking: boolean }) {
+  if (!issues.length && !warnings.length && !checking) return null;
+  return (
+    <div className="space-y-2">
+      {checking ? <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">Проверяем занятость преподавателя...</div> : null}
+      {issues.length ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <div className="font-semibold">Чтобы создать занятие, исправьте:</div>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            {issues.map((issue) => <li key={issue}>{issue}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {warnings.length ? (
+        <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+          {warnings.map((warning) => <div key={warning}>{warning}</div>)}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -513,6 +563,12 @@ function rangeTitle(date: Date, mode: ViewMode) {
 function timeRange(start: string, end: string) {
   const formatter = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
   return `${formatter.format(new Date(start))}-${formatter.format(new Date(end))}`;
+}
+
+function toIsoDateTime(date: string, time: string) {
+  if (!date || !time) return null;
+  const value = new Date(`${date}T${time}`);
+  return Number.isNaN(value.getTime()) ? null : value.toISOString();
 }
 
 function makeDraft(date: Date): EventDraft {
