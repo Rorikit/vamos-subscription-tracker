@@ -46,6 +46,7 @@ export function SchedulePage() {
   const [eventDraft, setEventDraft] = useState<EventDraft | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [completeEvent, setCompleteEvent] = useState<ScheduleEvent | null>(null);
+  const [drawerError, setDrawerError] = useState<string | null>(null);
 
   const range = useMemo(() => getRange(anchorDate, mode), [anchorDate, mode]);
   const filters = {
@@ -60,16 +61,30 @@ export function SchedulePage() {
 
   const deleteMutation = useMutation({
     mutationFn: (eventId: number) => scheduleService.delete(eventId),
+    onMutate: () => {
+      setDrawerError(null);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schedule-events"] });
+      setDrawerError(null);
       setSelectedEvent(null);
+      queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      setDrawerError(error instanceof Error ? error.message : "Не удалось удалить занятие");
     },
   });
   const cancelMutation = useMutation({
     mutationFn: (eventId: number) => scheduleService.cancel(eventId),
+    onMutate: () => {
+      setDrawerError(null);
+    },
     onSuccess: (event) => {
+      setDrawerError(null);
       queryClient.invalidateQueries();
       setSelectedEvent(event);
+    },
+    onError: (error) => {
+      setDrawerError(error instanceof Error ? error.message : "Не удалось отменить занятие");
     },
   });
   const returnMutation = useMutation({
@@ -154,7 +169,7 @@ export function SchedulePage() {
       </section>
 
       {events.isError ? <ErrorBlock onRetry={() => events.refetch()} /> : null}
-      {events.isLoading ? <LoadingGrid /> : <CalendarCanvas mode={mode} start={range.start} events={visibleEvents} teacherColor={teacherColor} onOpen={setSelectedEvent} onCreate={(date) => { setAnchorDate(formatDateInput(date)); setEventDraft(makeDraft(date)); setEditorEvent("new"); }} />}
+      {events.isLoading ? <LoadingGrid /> : <CalendarCanvas mode={mode} start={range.start} events={visibleEvents} teacherColor={teacherColor} onOpen={(event) => { setDrawerError(null); setSelectedEvent(event); }} onCreate={(date) => { setAnchorDate(formatDateInput(date)); setEventDraft(makeDraft(date)); setEditorEvent("new"); }} />}
 
       {!events.isLoading && visibleEvents.length === 0 ? (
         <div className="panel p-10 text-center">
@@ -170,6 +185,9 @@ export function SchedulePage() {
         {selectedEvent ? (
           <EventCard
             event={selectedEvent}
+            error={drawerError}
+            deleting={deleteMutation.isPending}
+            cancelling={cancelMutation.isPending}
             onEdit={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onMove={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onDelete={() => window.confirm("Удалить занятие из расписания?") && deleteMutation.mutate(selectedEvent.id)}
@@ -428,7 +446,29 @@ function ParticipantChoice({ participant, checked, onToggle }: { participant: Pa
   );
 }
 
-function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onDelete: () => void; onCancel: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
+function EventCard({
+  event,
+  error,
+  deleting,
+  cancelling,
+  onEdit,
+  onMove,
+  onDelete,
+  onCancel,
+  onComplete,
+  onReturn,
+}: {
+  event: ScheduleEvent;
+  error: string | null;
+  deleting: boolean;
+  cancelling: boolean;
+  onEdit: () => void;
+  onMove: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
+  onComplete: () => void;
+  onReturn: (participantId: number) => void;
+}) {
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
   const canDelete = event.status === "scheduled" || event.status === "cancelled";
@@ -468,9 +508,10 @@ function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onRe
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
           </>
         ) : null}
-        {canCancel ? <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> {event.status === "completed" ? "Отменить проведение" : "Отменить занятие"}</button> : null}
-        {canDelete ? <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button> : null}
+        {canCancel ? <button className="btn-secondary text-coral" disabled={cancelling || deleting} onClick={onCancel}><XCircle size={17} /> {cancelling ? "Отмена..." : event.status === "completed" ? "Отменить проведение" : "Отменить занятие"}</button> : null}
+        {canDelete ? <button className="btn-secondary text-coral" disabled={deleting || cancelling} onClick={onDelete}><XCircle size={17} /> {deleting ? "Удаление..." : "Удалить"}</button> : null}
       </div>
+      {error ? <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{error}</div> : null}
     </div>
   );
 }
