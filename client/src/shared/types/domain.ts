@@ -80,6 +80,60 @@ export type FinanceSummary = {
   active_teachers_count: number;
 };
 
+export type MonthlyExpense = {
+  id: number;
+  category_id: number;
+  category_name: string;
+  year: number;
+  month: number;
+  planned_amount: string;
+  actual_amount: string | null;
+  effective_amount: string;
+  paid: boolean;
+  paid_at: string | null;
+  paid_by_user_id: number | null;
+  paid_by_name: string | null;
+  comment: string | null;
+  is_variable: boolean;
+  reminder_day: number;
+  status: "paid" | "pending" | "due_today" | "overdue";
+  is_teacher_expense: boolean;
+};
+
+export type ExpenseChartItem = {
+  category_id: number;
+  category_name: string;
+  amount: string;
+  percentage: string;
+  is_teacher_expense: boolean;
+};
+
+export type FinanceMonthlyReport = {
+  year: number;
+  month: number;
+  date_from: string;
+  date_to: string;
+  income_total: string;
+  memberships_sold_total: string;
+  expenses_total: string;
+  teacher_expense_total: string;
+  net_result: string;
+  unpaid_expenses_count: number;
+  unpaid_expenses_total: string;
+  completed_visits_count: number;
+  chart: ExpenseChartItem[];
+  expenses: MonthlyExpense[];
+  teacher_earnings: TeacherEarning[];
+};
+
+export type ReminderStatus = {
+  year: number;
+  month: number;
+  active: boolean;
+  unpaid_count: number;
+  unpaid_total: string;
+};
+
 export type TeacherEarningVisit = {
   visit_id: number;
   visit_date: string;

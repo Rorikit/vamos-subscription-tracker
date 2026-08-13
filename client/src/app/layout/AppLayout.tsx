@@ -1,7 +1,10 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Ticket, Users } from "lucide-react";
 
 import { useAuth } from "../auth/AuthProvider";
+import { financeService } from "../../shared/api/financeService";
+import { toCurrency } from "../../shared/api/client";
 
 const navItems = [
   { to: "/dashboard", label: "Панель", icon: LayoutDashboard, roles: ["admin", "operator", "finance"] },
@@ -17,6 +20,13 @@ export function AppLayout() {
   const auth = useAuth();
   const role = auth.operator?.role ?? "operator";
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
+  const canSeeFinance = role === "admin" || role === "finance";
+  const reminders = useQuery({
+    queryKey: ["finance-reminders"],
+    queryFn: () => financeService.reminderStatus(),
+    enabled: canSeeFinance,
+    retry: false,
+  });
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -64,6 +74,11 @@ export function AppLayout() {
           </div>
         </header>
         <div className="flex-1 p-8">
+          {reminders.data?.active ? (
+            <Link to="/finance#reminders" className="mb-5 block rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              Есть неоплаченные обязательные расходы: {reminders.data.unpaid_count} на сумму {toCurrency(reminders.data.unpaid_total)}. Перейти к оплатам
+            </Link>
+          ) : null}
           <Outlet />
         </div>
       </main>

@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Membership, MembershipStatus, MembershipType, Participant, ScheduleEventStatus, Teacher
 from app.schemas.schedule import ScheduleEventCreate, ScheduleEventUpdate
-from app.services.schedule_events import cancel_event, complete_event, create_events, delete_event, move_event, return_participant_visit, update_event
+from app.services.schedule_events import add_participant, cancel_event, complete_event, create_events, delete_event, move_event, return_participant_visit, update_event
 
 
 class ScheduleEventTest(unittest.TestCase):
@@ -24,6 +24,10 @@ class ScheduleEventTest(unittest.TestCase):
         second = Participant(full_name="Мария Ученик", phone="+7 900 000-00-01")
         membership_type = MembershipType(name="8 занятий", lesson_count=8, price=Decimal("12000"), validity_days=30)
         self.db.add_all([teacher, participant, second, membership_type])
+        self.db.commit()
+
+        without_membership = Participant(full_name="No Membership", phone="+7 900 000-00-02")
+        self.db.add(without_membership)
         self.db.commit()
 
         for participant_id in [participant.id, second.id]:
@@ -44,6 +48,7 @@ class ScheduleEventTest(unittest.TestCase):
         self.teacher_id = teacher.id
         self.participant_id = participant.id
         self.second_id = second.id
+        self.without_membership_id = without_membership.id
         self.starts_at = datetime(2026, 8, 3, 10, 0)
         self.ends_at = datetime(2026, 8, 3, 11, 0)
 
@@ -66,6 +71,35 @@ class ScheduleEventTest(unittest.TestCase):
         events = create_events(self.db, self.payload(participant_ids=[self.participant_id, self.second_id]))
         self.assertEqual(len(events), 1)
         self.assertEqual(len(events[0].participants), 2)
+
+    def test_create_teacher_slot_without_participants(self) -> None:
+        events = create_events(self.db, self.payload(participant_ids=[]))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].participants, [])
+
+    def test_add_participant_does_not_write_off_lesson(self) -> None:
+        event = create_events(self.db, self.payload(participant_ids=[]))[0]
+        membership = self.db.query(Membership).filter(Membership.participant_id == self.participant_id).first()
+
+        updated = add_participant(self.db, event.id, self.participant_id)
+        self.db.refresh(membership)
+
+        self.assertEqual(len(updated.participants), 1)
+        self.assertEqual(membership.remaining_lessons, 8)
+
+    def test_add_participant_without_active_membership_is_rejected(self) -> None:
+        event = create_events(self.db, self.payload(participant_ids=[]))[0]
+
+        with self.assertRaises(HTTPException):
+            add_participant(self.db, event.id, self.without_membership_id)
+
+    def test_time_range_allows_only_30_minute_steps(self) -> None:
+        events = create_events(self.db, self.payload(starts_at=datetime(2026, 8, 3, 10, 30), ends_at=datetime(2026, 8, 3, 11, 30)))
+        self.assertEqual(events[0].starts_at.minute, 30)
+
+        with self.assertRaises(HTTPException):
+            create_events(self.db, self.payload(starts_at=datetime(2026, 8, 3, 12, 15), ends_at=datetime(2026, 8, 3, 13, 15)))
 
     def test_create_recurring_series(self) -> None:
         events = create_events(self.db, self.payload(recurrence={"frequency": "weekly", "count": 4}))
@@ -166,6 +200,19 @@ class ScheduleEventTest(unittest.TestCase):
         absent = next(item for item in completed.participants if item.participant_id == self.second_id)
         self.assertTrue(attended.visit_id)
         self.assertIsNone(absent.visit_id)
+        attended_membership = self.db.query(Membership).filter(Membership.participant_id == self.participant_id).first()
+        absent_membership = self.db.query(Membership).filter(Membership.participant_id == self.second_id).first()
+        self.assertEqual(attended_membership.remaining_lessons, 7)
+        self.assertEqual(absent_membership.remaining_lessons, 8)
+
+        with self.assertRaises(HTTPException):
+            complete_event(
+                self.db,
+                event.id,
+                [{"participant_id": self.participant_id, "attendance_status": "attended"}],
+            )
+        self.db.refresh(attended_membership)
+        self.assertEqual(attended_membership.remaining_lessons, 7)
 
         returned = return_participant_visit(self.db, event.id, self.participant_id)
         returned_item = next(item for item in returned.participants if item.participant_id == self.participant_id)

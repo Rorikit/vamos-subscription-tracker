@@ -14,10 +14,14 @@ router = APIRouter(prefix="/participants", tags=["participants"])
 @router.get("", response_model=list[ParticipantListItem])
 def list_participants(search: str | None = Query(default=None), db: Session = Depends(get_db)):
     query = db.query(Participant)
-    if search:
-        pattern = f"%{search.strip()}%"
-        query = query.filter(Participant.full_name.ilike(pattern) | Participant.phone.ilike(pattern))
     participants = query.order_by(Participant.full_name).all()
+    term = search.strip().casefold() if search else ""
+    if term:
+        participants = [
+            participant
+            for participant in participants
+            if term in participant.full_name.casefold() or term in (participant.phone or "").casefold()
+        ]
     result = []
     for participant in participants:
         active_membership = get_active_membership(db, participant.id)

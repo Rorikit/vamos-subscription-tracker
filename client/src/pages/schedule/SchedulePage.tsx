@@ -207,7 +207,10 @@ export function SchedulePage() {
 function CalendarCanvas({ mode, start, events, teacherColor, onOpen, onCreate }: { mode: ViewMode; start: Date; events: ScheduleEvent[]; teacherColor: (id: number) => string; onOpen: (event: ScheduleEvent) => void; onCreate: (date: Date) => void }) {
   if (mode === "month") return <MonthView start={start} events={events} teacherColor={teacherColor} onOpen={onOpen} onCreate={onCreate} />;
   const days = mode === "day" ? [start] : Array.from({ length: 7 }, (_, index) => addDays(start, index));
-  const hours = Array.from({ length: 14 }, (_, index) => 8 + index);
+  const slots = Array.from({ length: 27 }, (_, index) => {
+    const totalMinutes = 8 * 60 + index * 30;
+    return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
+  });
   return (
     <section className="panel flex max-h-[calc(100vh-270px)] min-h-[460px] flex-col overflow-hidden">
       <div className={`grid ${mode === "day" ? "grid-cols-1" : "grid-cols-7"} border-b border-slate-100 bg-slate-50`}>
@@ -220,10 +223,10 @@ function CalendarCanvas({ mode, start, events, teacherColor, onOpen, onCreate }:
             <div key={day.toISOString()} className="space-y-2 p-3">
               {dayEvents.map((event) => <EventPill key={event.id} event={event} color={event.color || teacherColor(event.teacher_id)} onOpen={onOpen} />)}
               <div className="grid grid-cols-2 gap-2">
-                {hours.map((hour) => {
+                {slots.map(({ hour, minute }) => {
                   const slot = new Date(day);
-                  slot.setHours(hour, 0, 0, 0);
-                  return <button key={hour} className="h-10 rounded-md border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:border-mint hover:text-mint" onClick={() => onCreate(slot)}>{String(hour).padStart(2, "0")}:00</button>;
+                  slot.setHours(hour, minute, 0, 0);
+                  return <button key={`${hour}-${minute}`} className="h-10 rounded-md border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:border-mint hover:text-mint" onClick={() => onCreate(slot)}>{String(hour).padStart(2, "0")}:{String(minute).padStart(2, "0")}</button>;
                 })}
               </div>
             </div>
@@ -339,12 +342,14 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
     !startTime ? "Выберите время начала." : null,
     !endTime ? "Выберите время окончания." : null,
     startsAt && endsAt && !timeIsValid ? "Время окончания должно быть позже времени начала." : null,
-    eventType !== "other" && participantIds.length === 0 ? "Добавьте хотя бы одного участника для группового или индивидуального занятия." : null,
     conflictCheck.data?.length ? `Преподаватель уже занят: ${conflictCheck.data[0].title}, ${timeRange(conflictCheck.data[0].starts_at, conflictCheck.data[0].ends_at)}.` : null,
   ].filter(Boolean) as string[];
   const warnings = [
+    participantIds.length === 0
+      ? "Можно создать слот преподавателя без участников и добавить учеников позже."
+      : null,
     selectedParticipants.some((participant) => !participant.active_membership_id)
-      ? "У части участников нет активного абонемента. Занятие можно запланировать, но при проведении нужно будет оформить абонемент."
+      ? "У части участников нет активного абонемента. Backend не даст добавить их в занятие."
       : null,
   ].filter(Boolean) as string[];
   const canSubmit = validationIssues.length === 0 && !conflictCheck.isFetching;
@@ -359,8 +364,8 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
       <Field label="Название занятия" value={title} onChange={setTitle} required />
       <div className="grid grid-cols-3 gap-3">
         <Field label="Дата" value={date} onChange={setDate} type="date" required />
-        <Field label="Начало" value={startTime} onChange={setStartTime} type="time" required />
-        <Field label="Окончание" value={endTime} onChange={setEndTime} type="time" required />
+        <Field label="Начало" value={startTime} onChange={setStartTime} type="time" step="1800" required />
+        <Field label="Окончание" value={endTime} onChange={setEndTime} type="time" step="1800" required />
       </div>
       <label className="block text-sm font-medium text-slate-700">
         Преподаватель
@@ -510,6 +515,7 @@ function EventCard({
         {event.status === "scheduled" ? (
           <>
             <button className="btn-primary" onClick={onComplete}><CheckCircle2 size={17} /> Отметить проведение</button>
+            <button className="btn-secondary" onClick={onEdit}>Добавить участника</button>
             <button className="btn-secondary" onClick={onEdit}>Редактировать</button>
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
           </>
@@ -588,11 +594,11 @@ function CompleteEventForm({ event, onDone }: { event: ScheduleEvent; onDone: (e
   );
 }
 
-function Field({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) {
+function Field({ label, value, onChange, type = "text", required = false, step }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; step?: string }) {
   return (
     <label className="block text-sm font-medium text-slate-700">
       {label}
-      <input className="input mt-1" value={value} type={type} onChange={(event) => onChange(event.target.value)} required={required} />
+      <input className="input mt-1" value={value} type={type} step={step} onChange={(event) => onChange(event.target.value)} required={required} />
     </label>
   );
 }

@@ -1,12 +1,229 @@
-from datetime import date
+from calendar import monthrange
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Membership, Teacher, Visit
+from app.models import ExpenseCategory, Membership, MonthlyExpense, Operator, Teacher, Visit
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
+
+TEACHER_EXPENSE_CATEGORY_NAME = "Оплата преподавателям"
+
+DEFAULT_EXPENSE_CATEGORIES = [
+    {"name": "Егорова", "default_amount": Decimal("60000"), "is_variable": False, "sort_order": 10},
+    {"name": "Вова", "default_amount": Decimal("50000"), "is_variable": False, "sort_order": 20},
+    {"name": "Кулер", "default_amount": Decimal("14000"), "is_variable": False, "sort_order": 30},
+    {"name": "Коммуналка", "default_amount": Decimal("41400"), "is_variable": False, "sort_order": 40},
+    {"name": "Интернет", "default_amount": Decimal("39800"), "is_variable": False, "sort_order": 50},
+    {"name": "Ковры", "default_amount": None, "is_variable": True, "sort_order": 60},
+    {"name": "Уборщица", "default_amount": Decimal("48000"), "is_variable": True, "sort_order": 70},
+    {"name": "Администратор", "default_amount": None, "is_variable": True, "sort_order": 80},
+    {"name": "Дворник", "default_amount": None, "is_variable": True, "sort_order": 90},
+    {"name": TEACHER_EXPENSE_CATEGORY_NAME, "default_amount": None, "is_variable": True, "sort_order": 100},
+]
+
+
+def month_bounds(year: int, month: int) -> tuple[date, date]:
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Месяц должен быть от 1 до 12")
+    return date(year, month, 1), date(year, month, monthrange(year, month)[1])
+
+
+def ensure_expense_categories(db: Session) -> list[ExpenseCategory]:
+    for item in DEFAULT_EXPENSE_CATEGORIES:
+        category = db.query(ExpenseCategory).filter(ExpenseCategory.name == item["name"]).first()
+        if not category:
+            db.add(
+                ExpenseCategory(
+                    name=item["name"],
+                    default_amount=item["default_amount"],
+                    is_variable=item["is_variable"],
+                    is_active=True,
+                    reminder_day=26,
+                    sort_order=item["sort_order"],
+                )
+            )
+    db.commit()
+    return db.query(ExpenseCategory).order_by(ExpenseCategory.sort_order, ExpenseCategory.name).all()
+
+
+def ensure_monthly_expenses(db: Session, year: int, month: int) -> list[MonthlyExpense]:
+    month_bounds(year, month)
+    categories = ensure_expense_categories(db)
+    existing = {
+        expense.category_id: expense
+        for expense in db.query(MonthlyExpense).filter(MonthlyExpense.year == year, MonthlyExpense.month == month).all()
+    }
+    for category in categories:
+        if not category.is_active or category.id in existing:
+            continue
+        planned = Decimal(category.default_amount or 0)
+        db.add(MonthlyExpense(category_id=category.id, year=year, month=month, planned_amount=quantize_money(planned)))
+    db.commit()
+    return (
+        db.query(MonthlyExpense)
+        .options(joinedload(MonthlyExpense.category), joinedload(MonthlyExpense.paid_by))
+        .join(ExpenseCategory)
+        .filter(MonthlyExpense.year == year, MonthlyExpense.month == month)
+        .order_by(ExpenseCategory.sort_order, ExpenseCategory.name)
+        .all()
+    )
+
+
+def _expense_status(expense: MonthlyExpense, today: date | None = None) -> str:
+    if expense.paid:
+        return "paid"
+    current = today or date.today()
+    if current.year == expense.year and current.month == expense.month:
+        if current.day > expense.category.reminder_day:
+            return "overdue"
+        if current.day == expense.category.reminder_day:
+            return "due_today"
+    return "pending"
+
+
+def _effective_amount(expense: MonthlyExpense, teacher_expense_total: Decimal) -> Decimal:
+    if expense.category.name == TEACHER_EXPENSE_CATEGORY_NAME:
+        return quantize_money(teacher_expense_total)
+    return quantize_money(Decimal(expense.actual_amount if expense.actual_amount is not None else expense.planned_amount or 0))
+
+
+def _serialize_expense(expense: MonthlyExpense, teacher_expense_total: Decimal) -> dict:
+    is_teacher_expense = expense.category.name == TEACHER_EXPENSE_CATEGORY_NAME
+    effective = _effective_amount(expense, teacher_expense_total)
+    planned = teacher_expense_total if is_teacher_expense else Decimal(expense.planned_amount or 0)
+    actual = teacher_expense_total if is_teacher_expense else expense.actual_amount
+    return {
+        "id": expense.id,
+        "category_id": expense.category_id,
+        "category_name": expense.category.name,
+        "year": expense.year,
+        "month": expense.month,
+        "planned_amount": quantize_money(planned),
+        "actual_amount": quantize_money(actual) if actual is not None else None,
+        "effective_amount": effective,
+        "paid": expense.paid,
+        "paid_at": expense.paid_at.date() if expense.paid_at else None,
+        "paid_by_user_id": expense.paid_by_user_id,
+        "paid_by_name": expense.paid_by.full_name if expense.paid_by else None,
+        "comment": expense.comment,
+        "is_variable": expense.category.is_variable,
+        "reminder_day": expense.category.reminder_day,
+        "status": _expense_status(expense),
+        "is_teacher_expense": is_teacher_expense,
+    }
+
+
+def get_monthly_report(db: Session, year: int, month: int) -> dict:
+    date_from, date_to = month_bounds(year, month)
+    expenses = ensure_monthly_expenses(db, year, month)
+    summary = get_summary(db, date_from=date_from, date_to=date_to)
+    teacher_earnings = get_teacher_earnings(db, date_from=date_from, date_to=date_to, include_cancelled=True)
+    teacher_expense_total = quantize_money(Decimal(summary["teacher_earnings_total"]))
+    serialized_expenses = [_serialize_expense(expense, teacher_expense_total) for expense in expenses]
+    expenses_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in serialized_expenses), Decimal("0")))
+    income_total = quantize_money(Decimal(summary["memberships_sold_total"]))
+    net_result = quantize_money(income_total - expenses_total)
+    unpaid = [item for item in serialized_expenses if not item["paid"]]
+    unpaid_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in unpaid), Decimal("0")))
+    chart = []
+    for item in serialized_expenses:
+        amount = Decimal(item["effective_amount"])
+        percentage = quantize_money((amount / expenses_total * Decimal("100")) if expenses_total else Decimal("0"))
+        chart.append(
+            {
+                "category_id": item["category_id"],
+                "category_name": item["category_name"],
+                "amount": amount,
+                "percentage": percentage,
+                "is_teacher_expense": item["is_teacher_expense"],
+            }
+        )
+    chart.sort(key=lambda item: (item["amount"], item["category_name"]), reverse=True)
+    return {
+        "year": year,
+        "month": month,
+        "date_from": date_from,
+        "date_to": date_to,
+        "income_total": income_total,
+        "memberships_sold_total": income_total,
+        "expenses_total": expenses_total,
+        "teacher_expense_total": teacher_expense_total,
+        "net_result": net_result,
+        "unpaid_expenses_count": len(unpaid),
+        "unpaid_expenses_total": unpaid_total,
+        "completed_visits_count": summary["completed_visits_count"],
+        "chart": chart,
+        "expenses": serialized_expenses,
+        "teacher_earnings": teacher_earnings,
+    }
+
+
+def list_monthly_expenses(db: Session, year: int, month: int) -> list[dict]:
+    report = get_monthly_report(db, year, month)
+    return report["expenses"]
+
+
+def update_monthly_expense(db: Session, expense_id: int, data: dict) -> MonthlyExpense:
+    expense = db.get(MonthlyExpense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Расход не найден")
+    if expense.category and expense.category.name == TEACHER_EXPENSE_CATEGORY_NAME and any(key in data for key in {"planned_amount", "actual_amount"}):
+        raise HTTPException(status_code=400, detail="Выплаты преподавателям рассчитываются автоматически")
+    for key, value in data.items():
+        setattr(expense, key, value)
+    db.add(expense)
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+def mark_expense_paid(db: Session, expense_id: int, operator: Operator) -> MonthlyExpense:
+    expense = db.get(MonthlyExpense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Расход не найден")
+    expense.paid = True
+    expense.paid_at = datetime.utcnow()
+    expense.paid_by_user_id = operator.id
+    db.add(expense)
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+def mark_expense_unpaid(db: Session, expense_id: int) -> MonthlyExpense:
+    expense = db.get(MonthlyExpense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Расход не найден")
+    expense.paid = False
+    expense.paid_at = None
+    expense.paid_by_user_id = None
+    db.add(expense)
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+def get_reminder_status(db: Session, year: int | None = None, month: int | None = None) -> dict:
+    today = date.today()
+    target_year = year or today.year
+    target_month = month or today.month
+    report = get_monthly_report(db, target_year, target_month)
+    active_unpaid = [
+        item
+        for item in report["expenses"]
+        if not item["paid"] and item["status"] in {"due_today", "overdue"}
+    ]
+    total = quantize_money(sum((Decimal(item["effective_amount"]) for item in active_unpaid), Decimal("0")))
+    return {
+        "year": target_year,
+        "month": target_month,
+        "active": bool(active_unpaid),
+        "unpaid_count": len(active_unpaid),
+        "unpaid_total": total,
+    }
 
 
 def get_teacher_earnings(

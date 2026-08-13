@@ -1,4 +1,5 @@
 from app.models.audit_log import AuditLog
+from app.models.expense import ExpenseCategory, MonthlyExpense
 from app.models.membership import Membership, MembershipStatus
 from app.models.membership_type import MembershipType
 from app.models.operator import Operator, OperatorRole
@@ -13,6 +14,8 @@ __all__ = [
     "MembershipStatus",
     "MembershipType",
     "AuditLog",
+    "ExpenseCategory",
+    "MonthlyExpense",
     "Operator",
     "OperatorRole",
     "Participant",

@@ -1,6 +1,7 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
 import { ProtectedRoute } from "../auth/ProtectedRoute";
+import { RoleRoute } from "../auth/RoleRoute";
 import { AppLayout } from "../layout/AppLayout";
 import { DashboardPage } from "../../pages/dashboard/DashboardPage";
 import { AuditLogsPage } from "../../pages/audit-logs/AuditLogsPage";
@@ -26,14 +27,14 @@ export const router = createBrowserRouter(
       ),
       children: [
         { index: true, element: <Navigate to="/dashboard" replace /> },
-        { path: "dashboard", element: <DashboardPage /> },
-        { path: "schedule", element: <SchedulePage /> },
-        { path: "participants", element: <ParticipantsPage /> },
-        { path: "participants/:id", element: <ParticipantCardPage /> },
-        { path: "memberships", element: <MembershipsPage /> },
-        { path: "finance", element: <FinancePage /> },
-        { path: "audit-logs", element: <AuditLogsPage /> },
-        { path: "settings", element: <SettingsPage /> },
+        { path: "dashboard", element: <RoleRoute roles={["admin", "operator", "finance"]}><DashboardPage /></RoleRoute> },
+        { path: "schedule", element: <RoleRoute roles={["admin", "operator"]}><SchedulePage /></RoleRoute> },
+        { path: "participants", element: <RoleRoute roles={["admin", "operator"]}><ParticipantsPage /></RoleRoute> },
+        { path: "participants/:id", element: <RoleRoute roles={["admin", "operator"]}><ParticipantCardPage /></RoleRoute> },
+        { path: "memberships", element: <RoleRoute roles={["admin", "operator"]}><MembershipsPage /></RoleRoute> },
+        { path: "finance", element: <RoleRoute roles={["admin", "finance"]}><FinancePage /></RoleRoute> },
+        { path: "audit-logs", element: <RoleRoute roles={["admin"]}><AuditLogsPage /></RoleRoute> },
+        { path: "settings", element: <RoleRoute roles={["admin"]}><SettingsPage /></RoleRoute> },
       ],
     },
   ],

@@ -16,7 +16,7 @@ from app.models import (
     Teacher,
 )
 from app.schemas.schedule import ScheduleEventCreate, ScheduleEventUpdate
-from app.services.memberships import cancel_visit, create_visit_from_completed_lesson
+from app.services.memberships import cancel_visit, create_visit_from_completed_lesson, get_active_membership
 from app.services.schedule_conflicts import find_teacher_conflicts
 from app.services.schedule_recurrence import generate_occurrences, make_recurrence_group_id, normalize_recurrence_rule
 
@@ -183,6 +183,7 @@ def add_participant(db: Session, event_id: int, participant_id: int) -> Schedule
     if event.status != ScheduleEventStatus.SCHEDULED:
         raise HTTPException(status_code=400, detail="Участников можно менять только до проведения занятия")
     ensure_participants_exist(db, [participant_id])
+    ensure_participants_can_attend(db, [participant_id])
     if any(item.participant_id == participant_id for item in event.participants):
         raise HTTPException(status_code=400, detail="Участник уже добавлен в занятие")
     event.participants.append(ScheduleEventParticipant(participant_id=participant_id))
@@ -215,6 +216,13 @@ def complete_event(db: Session, event_id: int, attendance: list[dict]) -> Schedu
     participant_ids = {item.participant_id for item in event.participants}
     if set(attendance_by_participant) - participant_ids:
         raise HTTPException(status_code=400, detail="В проведении есть участник, которого нет в занятии")
+
+    attended_ids = [
+        item.participant_id
+        for item in event.participants
+        if attendance_by_participant.get(item.participant_id, AttendanceStatus.ATTENDED) == AttendanceStatus.ATTENDED
+    ]
+    ensure_completion_memberships(db, attended_ids)
 
     try:
         for item in event.participants:
@@ -268,14 +276,18 @@ def validate_event_payload(
         return
     if len(participant_ids) != len(set(participant_ids)):
         raise HTTPException(status_code=400, detail="Участник не может быть добавлен дважды")
-    if event_type in {ScheduleEventType.GROUP, ScheduleEventType.INDIVIDUAL} and not participant_ids:
-        raise HTTPException(status_code=400, detail="Добавьте хотя бы одного участника")
     ensure_participants_exist(db, participant_ids)
+    ensure_participants_can_attend(db, participant_ids)
 
 
 def validate_time_range(starts_at: datetime, ends_at: datetime) -> None:
     if ends_at <= starts_at:
         raise HTTPException(status_code=400, detail="Время окончания должно быть позже начала")
+    if starts_at.minute not in {0, 30} or ends_at.minute not in {0, 30} or starts_at.second or ends_at.second or starts_at.microsecond or ends_at.microsecond:
+        raise HTTPException(status_code=400, detail="Время занятия должно идти с шагом 30 минут")
+    duration_minutes = int((ends_at - starts_at).total_seconds() // 60)
+    if duration_minutes < 30 or duration_minutes % 30 != 0:
+        raise HTTPException(status_code=400, detail="Длительность занятия должна быть кратна 30 минутам")
 
 
 def ensure_participants_exist(db: Session, participant_ids: list[int]) -> None:
@@ -285,6 +297,30 @@ def ensure_participants_exist(db: Session, participant_ids: list[int]) -> None:
     missing = set(participant_ids) - existing
     if missing:
         raise HTTPException(status_code=404, detail=f"Участники не найдены: {', '.join(map(str, sorted(missing)))}")
+
+
+def ensure_participants_can_attend(db: Session, participant_ids: list[int]) -> None:
+    if not participant_ids:
+        return
+    participants = db.query(Participant).filter(Participant.id.in_(participant_ids)).order_by(Participant.full_name).all()
+    errors: list[str] = []
+    for participant in participants:
+        if not get_active_membership(db, participant.id):
+            errors.append(f"{participant.full_name}: нет активного абонемента")
+    if errors:
+        raise HTTPException(status_code=400, detail="Не удалось добавить участника в занятие.\n" + "\n".join(errors))
+
+
+def ensure_completion_memberships(db: Session, participant_ids: list[int]) -> None:
+    if not participant_ids:
+        return
+    participants = db.query(Participant).filter(Participant.id.in_(participant_ids)).order_by(Participant.full_name).all()
+    errors: list[str] = []
+    for participant in participants:
+        if not get_active_membership(db, participant.id):
+            errors.append(f"{participant.full_name}: нет активного абонемента")
+    if errors:
+        raise HTTPException(status_code=400, detail="Не удалось завершить занятие.\n" + "\n".join(errors))
 
 
 def sync_event_participants(event: ScheduleEvent, participant_ids: list[int]) -> None:
