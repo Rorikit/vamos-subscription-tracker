@@ -292,8 +292,6 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
   const [color, setColor] = useState(event?.color ?? "#159895");
   const [participantIds, setParticipantIds] = useState<number[]>(event?.participants.map((item) => item.participant_id) ?? []);
   const [participantSearch, setParticipantSearch] = useState("");
-  const [recurrenceFrequency, setRecurrenceFrequency] = useState("none");
-  const [recurrenceCount, setRecurrenceCount] = useState("4");
   const debouncedSearch = useDebouncedValue(participantSearch, 300);
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
   const participants = useQuery({ queryKey: ["participants", "schedule-form", debouncedSearch], queryFn: () => participantService.list(debouncedSearch) });
@@ -323,7 +321,7 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
         location,
         color,
         participant_ids: participantIds,
-        recurrence: recurrenceFrequency === "none" ? null : { frequency: recurrenceFrequency, count: Number(recurrenceCount) },
+        recurrence: null,
       });
     },
     onSuccess: () => {
@@ -385,19 +383,6 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
       <Field label="Место" value={location} onChange={setLocation} />
       <Field label="Описание" value={description} onChange={setDescription} />
       <Field label="Цвет" value={color} onChange={setColor} type="color" />
-      {!event ? (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm font-medium text-slate-700">
-            Повторение
-            <select className="input mt-1" value={recurrenceFrequency} onChange={(item) => setRecurrenceFrequency(item.target.value)}>
-              <option value="none">Не повторяется</option>
-              <option value="daily">Ежедневно</option>
-              <option value="weekly">Еженедельно</option>
-            </select>
-          </label>
-          <Field label="Количество занятий" value={recurrenceCount} onChange={setRecurrenceCount} type="number" />
-        </div>
-      ) : null}
       <div>
         <label className="block text-sm font-medium text-slate-700">
           Участники
