@@ -6,12 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
-from app.models import Membership, MembershipType, Participant, Payment, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
-from app.routers import audit_logs, auth, expense_categories, finance, membership_types, memberships, operators, participants, schedule_events, teachers, visits
+from app.models import Membership, MembershipType, Participant, Payment, PracticeRental, PracticeTariff, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
+from app.routers import audit_logs, auth, expense_categories, finance, membership_types, memberships, operators, participants, practice, schedule_events, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, ensure_system_operator, get_current_operator
 from app.services.finance import ensure_expense_categories, ensure_teacher_seed
 from app.services.lesson_finance import backfill_visit_financials
+from app.services.practice import ensure_practice_tariffs
 
 app = FastAPI(title="Vamos Subscription Tracker API")
 
@@ -44,6 +45,7 @@ app.include_router(operators.router, dependencies=protected)
 app.include_router(finance.router, dependencies=protected)
 app.include_router(expense_categories.router, dependencies=protected)
 app.include_router(schedule_events.router, dependencies=protected)
+app.include_router(practice.router, dependencies=protected)
 
 
 def should_seed_demo_data() -> bool:
@@ -102,6 +104,7 @@ def on_startup() -> None:
             remove_demo_seed_data(db)
         backfill_visit_financials(db)
         ensure_expense_categories(db)
+        ensure_practice_tariffs(db)
         ensure_default_operator(db)
         ensure_system_operator(db)
     finally:

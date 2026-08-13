@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import ExpenseCategory, Membership, MonthlyExpense, Operator, Teacher, Visit
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
+from app.services.practice import get_practice_income
 
 TEACHER_EXPENSE_CATEGORY_NAME = "Оплата преподавателям"
 
@@ -124,7 +125,9 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
     teacher_expense_total = quantize_money(Decimal(summary["teacher_earnings_total"]))
     serialized_expenses = [_serialize_expense(expense, teacher_expense_total) for expense in expenses]
     expenses_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in serialized_expenses), Decimal("0")))
-    income_total = quantize_money(Decimal(summary["memberships_sold_total"]))
+    memberships_sold_total = quantize_money(Decimal(summary["memberships_sold_total"]))
+    practice_income = quantize_money(Decimal(summary["practice_income"]))
+    income_total = quantize_money(memberships_sold_total + practice_income)
     net_result = quantize_money(income_total - expenses_total)
     unpaid = [item for item in serialized_expenses if not item["paid"]]
     unpaid_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in unpaid), Decimal("0")))
@@ -148,7 +151,8 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
         "date_from": date_from,
         "date_to": date_to,
         "income_total": income_total,
-        "memberships_sold_total": income_total,
+        "memberships_sold_total": memberships_sold_total,
+        "practice_income": practice_income,
         "expenses_total": expenses_total,
         "teacher_expense_total": teacher_expense_total,
         "net_result": net_result,
@@ -394,9 +398,12 @@ def get_summary(
     if teacher_id:
         active_teachers_query = active_teachers_query.filter(Teacher.id == teacher_id)
     active_teachers_count = active_teachers_query.count()
+    practice_income = get_practice_income(db, date_from=date_from, date_to=date_to)
 
     return {
         "memberships_sold_total": quantize_money(memberships_sold_total),
+        "practice_income": practice_income,
+        "income_total": quantize_money(memberships_sold_total + practice_income),
         "completed_lessons_value": quantize_money(completed_lessons_value),
         "teacher_earnings_total": quantize_money(teacher_earnings_total),
         "school_earnings_total": quantize_money(school_earnings_total),

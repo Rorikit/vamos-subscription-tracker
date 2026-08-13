@@ -5,19 +5,22 @@ import { Pencil, Plus } from "lucide-react";
 import type { Operator } from "../../shared/api/authService";
 import { membershipTypeService } from "../../shared/api/membershipTypeService";
 import { operatorService } from "../../shared/api/operatorService";
+import { practiceService } from "../../shared/api/practiceService";
 import { teacherService } from "../../shared/api/teacherService";
 import { toCurrency } from "../../shared/api/client";
 import { MembershipTypeForm, TeacherForm } from "../../shared/ui/Forms";
 import { Modal } from "../../shared/ui/Modal";
-import { Teacher } from "../../shared/types/domain";
+import { PracticeTariff, Teacher } from "../../shared/types/domain";
 
 export function SettingsPage() {
   const [typeOpen, setTypeOpen] = useState(false);
   const [teacherModal, setTeacherModal] = useState<Teacher | "new" | null>(null);
   const [operatorModal, setOperatorModal] = useState<Operator | "new" | null>(null);
+  const [practiceTariffModal, setPracticeTariffModal] = useState<PracticeTariff | "new" | null>(null);
   const types = useQuery({ queryKey: ["membership-types"], queryFn: membershipTypeService.list });
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
   const operators = useQuery({ queryKey: ["operators"], queryFn: operatorService.list });
+  const practiceTariffs = useQuery({ queryKey: ["practice-tariffs"], queryFn: () => practiceService.tariffs() });
 
   return (
     <div className="space-y-6">
@@ -131,6 +134,41 @@ export function SettingsPage() {
         </table>
       </section>
 
+      <section className="panel overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold text-ink">Тарифы практики</h2>
+          <button className="btn-primary" onClick={() => setPracticeTariffModal("new")}>
+            <Plus size={18} /> Создать тариф
+          </button>
+        </div>
+        <table className="w-full">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="th">Название</th>
+              <th className="th">Цена</th>
+              <th className="th">Порядок</th>
+              <th className="th">Статус</th>
+              <th className="th">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {practiceTariffs.data?.map((tariff) => (
+              <tr key={tariff.id}>
+                <td className="td font-semibold text-ink">{tariff.name}</td>
+                <td className="td">{toCurrency(tariff.price)}</td>
+                <td className="td">{tariff.sort_order}</td>
+                <td className="td">{tariff.is_active ? "Активен" : "Отключен"}</td>
+                <td className="td">
+                  <button className="font-semibold text-mint hover:text-teal-700" onClick={() => setPracticeTariffModal(tariff)}>
+                    <Pencil className="mr-1 inline" size={16} /> Редактировать
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
       <Modal title="Создать тип абонемента" open={typeOpen} onClose={() => setTypeOpen(false)}>
         <MembershipTypeForm onDone={() => setTypeOpen(false)} />
       </Modal>
@@ -148,7 +186,48 @@ export function SettingsPage() {
       >
         <OperatorForm operator={operatorModal && operatorModal !== "new" ? operatorModal : undefined} onDone={() => setOperatorModal(null)} />
       </Modal>
+      <Modal
+        title={practiceTariffModal === "new" ? "Создать тариф практики" : "Редактировать тариф практики"}
+        open={practiceTariffModal !== null}
+        onClose={() => setPracticeTariffModal(null)}
+      >
+        <PracticeTariffForm tariff={practiceTariffModal && practiceTariffModal !== "new" ? practiceTariffModal : undefined} onDone={() => setPracticeTariffModal(null)} />
+      </Modal>
     </div>
+  );
+}
+
+function PracticeTariffForm({ tariff, onDone }: { tariff?: PracticeTariff; onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(tariff?.name ?? "");
+  const [price, setPrice] = useState(tariff?.price ?? "");
+  const [sortOrder, setSortOrder] = useState(String(tariff?.sort_order ?? 100));
+  const [isActive, setIsActive] = useState(tariff?.is_active ?? true);
+  const mutation = useMutation({
+    mutationFn: () => {
+      const payload = { name, price, sort_order: Number(sortOrder || 100), is_active: isActive };
+      return tariff ? practiceService.updateTariff(tariff.id, payload) : practiceService.createTariff(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["practice-tariffs"] });
+      onDone();
+    },
+  });
+
+  return (
+    <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}>
+      <Field label="Название" value={name} onChange={setName} required />
+      <Field label="Цена" value={price} onChange={setPrice} type="number" required />
+      <Field label="Порядок" value={sortOrder} onChange={setSortOrder} type="number" />
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input checked={isActive} type="checkbox" onChange={(event) => setIsActive(event.target.checked)} />
+        Активен
+      </label>
+      {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
+      <button className="btn-primary w-full" disabled={mutation.isPending || !name || !price}>
+        {mutation.isPending ? "Сохранение..." : tariff ? "Сохранить тариф" : "Создать тариф"}
+      </button>
+    </form>
   );
 }
 

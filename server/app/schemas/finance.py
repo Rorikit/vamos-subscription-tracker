@@ -38,6 +38,8 @@ class TeacherEarning(ApiModel):
 
 class FinanceSummary(ApiModel):
     memberships_sold_total: Decimal
+    practice_income: Decimal
+    income_total: Decimal
     completed_lessons_value: Decimal
     teacher_earnings_total: Decimal
     school_earnings_total: Decimal
@@ -130,6 +132,7 @@ class FinanceMonthlyReport(ApiModel):
     date_to: date
     income_total: Decimal
     memberships_sold_total: Decimal
+    practice_income: Decimal
     expenses_total: Decimal
     teacher_expense_total: Decimal
     net_result: Decimal

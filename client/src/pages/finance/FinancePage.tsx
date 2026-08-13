@@ -105,11 +105,20 @@ function FinanceContent({
       ) : null}
 
       <div className="grid grid-cols-4 gap-4">
-        <StatCard label="Доходы" value={toCurrency(report.income_total)} hint="Продажи абонементов за месяц" />
+        <StatCard label="Доходы" value={toCurrency(report.income_total)} hint="Абонементы и практика" />
         <StatCard label="Расходы" value={toCurrency(report.expenses_total)} hint="Обязательные платежи и выплаты" />
         <StatCard label={Number(report.net_result) >= 0 ? "Прибыль" : "Убыток"} value={toCurrency(report.net_result)} hint="Доходы минус расходы" />
         <StatCard label="Не оплачено" value={unpaidText} hint={toCurrency(report.unpaid_expenses_total)} />
       </div>
+
+      <section className="panel p-5">
+        <SectionTitle title="Структура доходов" compact />
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <IncomeItem label="Абонементы" value={report.memberships_sold_total} />
+          <IncomeItem label="Практика" value={report.practice_income} />
+          <IncomeItem label="Всего" value={report.income_total} strong />
+        </div>
+      </section>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="panel p-5">
@@ -135,6 +144,15 @@ function FinanceContent({
         {expandedTeachers ? <TeacherDetails data={report.teacher_earnings} /> : <div className="px-5 py-4 text-sm text-slate-500">Выплаты преподавателям учтены в расходах как категория «Оплата преподавателям».</div>}
       </section>
     </>
+  );
+}
+
+function IncomeItem({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="rounded-md border border-slate-100 bg-slate-50 px-4 py-3">
+      <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+      <div className={`mt-1 text-lg ${strong ? "font-bold text-ink" : "font-semibold text-slate-700"}`}>{toCurrency(value)}</div>
+    </div>
   );
 }
 

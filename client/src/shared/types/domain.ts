@@ -71,6 +71,8 @@ export type Visit = {
 
 export type FinanceSummary = {
   memberships_sold_total: string;
+  practice_income: string;
+  income_total: string;
   completed_lessons_value: string;
   teacher_earnings_total: string;
   school_earnings_total: string;
@@ -115,6 +117,7 @@ export type FinanceMonthlyReport = {
   date_to: string;
   income_total: string;
   memberships_sold_total: string;
+  practice_income: string;
   expenses_total: string;
   teacher_expense_total: string;
   net_result: string;
@@ -218,4 +221,40 @@ export type ScheduleConflict = {
   teacher_name: string | null;
   starts_at: string;
   ends_at: string;
+};
+
+export type PracticeRentalStatus = "active" | "cancelled";
+
+export type PracticeTariff = {
+  id: number;
+  name: string;
+  price: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PracticeRental = {
+  id: number;
+  registered_teacher_id: number | null;
+  customer_name: string;
+  tariff_id: number | null;
+  tariff_name_snapshot: string;
+  amount: string;
+  practiced_at: string;
+  status: PracticeRentalStatus;
+  comment: string | null;
+  created_by_user_id: number;
+  created_by_name: string | null;
+  cancelled_at: string | null;
+  cancelled_by_user_id: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PracticeRentalSummary = {
+  income_total: string;
+  rentals_count: number;
+  average_check: string;
 };
