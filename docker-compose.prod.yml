@@ -34,8 +34,8 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_BIND_IP:-0.0.0.0}:80:80"
+      - "${CADDY_BIND_IP:-0.0.0.0}:443:443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
