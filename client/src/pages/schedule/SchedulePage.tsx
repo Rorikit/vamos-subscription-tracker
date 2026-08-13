@@ -190,8 +190,8 @@ export function SchedulePage() {
             cancelling={cancelMutation.isPending}
             onEdit={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onMove={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
-            onDelete={() => window.confirm("Удалить занятие из расписания?") && deleteMutation.mutate(selectedEvent.id)}
-            onCancel={() => window.confirm(`${selectedEvent.status === "completed" ? "Отменить проведение занятия и вернуть все посещения?" : "Отменить занятие?"}\n\n${timeRange(selectedEvent.starts_at, selectedEvent.ends_at)}\n${selectedEvent.teacher?.full_name ?? ""}\n${selectedEvent.participants.length} участник(ов)`) && cancelMutation.mutate(selectedEvent.id)}
+            onDelete={() => deleteMutation.mutate(selectedEvent.id)}
+            onCancel={() => cancelMutation.mutate(selectedEvent.id)}
             onComplete={() => { setCompleteEvent(selectedEvent); setSelectedEvent(null); }}
             onReturn={(participantId) => returnMutation.mutate({ eventId: selectedEvent.id, participantId })}
           />
@@ -469,10 +469,16 @@ function EventCard({
   onComplete: () => void;
   onReturn: (participantId: number) => void;
 }) {
+  const [confirmAction, setConfirmAction] = useState<"cancel" | "delete" | null>(null);
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
   const canDelete = event.status === "scheduled" || event.status === "cancelled";
   const canCancel = event.status === "scheduled" || event.status === "completed";
+
+  useEffect(() => {
+    setConfirmAction(null);
+  }, [event.id]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -508,9 +514,46 @@ function EventCard({
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
           </>
         ) : null}
-        {canCancel ? <button className="btn-secondary text-coral" disabled={cancelling || deleting} onClick={onCancel}><XCircle size={17} /> {cancelling ? "Отмена..." : event.status === "completed" ? "Отменить проведение" : "Отменить занятие"}</button> : null}
-        {canDelete ? <button className="btn-secondary text-coral" disabled={deleting || cancelling} onClick={onDelete}><XCircle size={17} /> {deleting ? "Удаление..." : "Удалить"}</button> : null}
+        {canCancel ? (
+          <button className="btn-secondary text-coral" disabled={cancelling || deleting} onClick={() => setConfirmAction("cancel")}>
+            <XCircle size={17} /> {cancelling ? "Отмена..." : event.status === "completed" ? "Отменить проведение" : "Отменить занятие"}
+          </button>
+        ) : null}
+        {canDelete ? (
+          <button className="btn-secondary text-coral" disabled={deleting || cancelling} onClick={() => setConfirmAction("delete")}>
+            <XCircle size={17} /> {deleting ? "Удаление..." : "Удалить"}
+          </button>
+        ) : null}
       </div>
+      {confirmAction ? (
+        <div className="rounded-md border border-coral/30 bg-coral/10 p-3">
+          <div className="text-sm font-semibold text-ink">
+            {confirmAction === "delete"
+              ? "Удалить занятие из расписания полностью?"
+              : event.status === "completed"
+                ? "Отменить проведение и вернуть посещения?"
+                : "Отменить занятие?"}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
+            {timeRange(event.starts_at, event.ends_at)} · {event.teacher?.full_name ?? "Преподаватель не указан"} · {event.participants.length} участник(ов)
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="btn-secondary text-coral"
+              disabled={deleting || cancelling}
+              onClick={() => {
+                if (confirmAction === "delete") onDelete();
+                if (confirmAction === "cancel") onCancel();
+              }}
+            >
+              <XCircle size={17} /> {confirmAction === "delete" ? "Да, удалить" : "Да, отменить"}
+            </button>
+            <button className="btn-secondary" disabled={deleting || cancelling} onClick={() => setConfirmAction(null)}>
+              Не выполнять
+            </button>
+          </div>
+        </div>
+      ) : null}
       {error ? <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{error}</div> : null}
     </div>
   );
