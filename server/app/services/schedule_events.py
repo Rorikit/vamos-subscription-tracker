@@ -140,7 +140,22 @@ def move_event(db: Session, event_id: int, starts_at: datetime, ends_at: datetim
 def cancel_event(db: Session, event_id: int) -> ScheduleEvent:
     event = get_event(db, event_id)
     if event.status == ScheduleEventStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail="Проведенное занятие нельзя отменить")
+        try:
+            for participant in event.participants:
+                if participant.visit and not participant.visit.is_cancelled:
+                    cancel_visit(db, participant.visit_id, commit=False)
+                participant.attendance_status = AttendanceStatus.CANCELLED
+                db.add(participant)
+            event.status = ScheduleEventStatus.CANCELLED
+            event.cancelled_at = datetime.utcnow()
+            event.completed_at = None
+            db.add(event)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        db.refresh(event)
+        return event
     if event.status != ScheduleEventStatus.CANCELLED:
         event.status = ScheduleEventStatus.CANCELLED
         event.cancelled_at = datetime.utcnow()
@@ -154,7 +169,7 @@ def cancel_event(db: Session, event_id: int) -> ScheduleEvent:
 
 def delete_event(db: Session, event_id: int) -> ScheduleEvent:
     event = get_event(db, event_id)
-    if any(participant.visit_id for participant in event.participants):
+    if any(participant.visit_id and participant.visit and not participant.visit.is_cancelled for participant in event.participants):
         raise HTTPException(status_code=400, detail="Нельзя удалить занятие с проведенными посещениями. Сначала верните занятия участникам.")
     if event.status == ScheduleEventStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Проведенное занятие нельзя удалить")

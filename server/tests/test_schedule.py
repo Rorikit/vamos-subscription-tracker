@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Membership, MembershipStatus, MembershipType, Participant, ScheduleEventStatus, Teacher
 from app.schemas.schedule import ScheduleEventCreate, ScheduleEventUpdate
-from app.services.schedule_events import complete_event, create_events, delete_event, move_event, return_participant_visit, update_event
+from app.services.schedule_events import cancel_event, complete_event, create_events, delete_event, move_event, return_participant_visit, update_event
 
 
 class ScheduleEventTest(unittest.TestCase):
@@ -121,6 +121,35 @@ class ScheduleEventTest(unittest.TestCase):
 
         with self.assertRaises(HTTPException):
             delete_event(self.db, event.id)
+
+    def test_cancel_completed_event_returns_all_visits_and_allows_delete(self) -> None:
+        event = create_events(self.db, self.payload(participant_ids=[self.participant_id, self.second_id]))[0]
+        complete_event(
+            self.db,
+            event.id,
+            [
+                {"participant_id": self.participant_id, "attendance_status": "attended"},
+                {"participant_id": self.second_id, "attendance_status": "attended"},
+            ],
+        )
+        first_membership = self.db.query(Membership).filter(Membership.participant_id == self.participant_id).first()
+        second_membership = self.db.query(Membership).filter(Membership.participant_id == self.second_id).first()
+        self.assertEqual(first_membership.remaining_lessons, 7)
+        self.assertEqual(second_membership.remaining_lessons, 7)
+
+        cancelled = cancel_event(self.db, event.id)
+
+        self.assertEqual(cancelled.status, ScheduleEventStatus.CANCELLED)
+        self.assertIsNone(cancelled.completed_at)
+        self.assertTrue(all(item.attendance_status == "cancelled" for item in cancelled.participants))
+        self.assertTrue(all(item.visit.is_cancelled for item in cancelled.participants if item.visit))
+        self.db.refresh(first_membership)
+        self.db.refresh(second_membership)
+        self.assertEqual(first_membership.remaining_lessons, 8)
+        self.assertEqual(second_membership.remaining_lessons, 8)
+
+        delete_event(self.db, event.id)
+        self.assertIsNone(self.db.get(type(event), event.id))
 
     def test_complete_group_event_and_return_visit(self) -> None:
         event = create_events(self.db, self.payload(participant_ids=[self.participant_id, self.second_id]))[0]

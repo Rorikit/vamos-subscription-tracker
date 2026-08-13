@@ -68,8 +68,7 @@ export function SchedulePage() {
   const cancelMutation = useMutation({
     mutationFn: (eventId: number) => scheduleService.cancel(eventId),
     onSuccess: (event) => {
-      queryClient.invalidateQueries({ queryKey: ["schedule-events"] });
-      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      queryClient.invalidateQueries();
       setSelectedEvent(event);
     },
   });
@@ -174,7 +173,7 @@ export function SchedulePage() {
             onEdit={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onMove={() => { setEditorEvent(selectedEvent); setSelectedEvent(null); }}
             onDelete={() => window.confirm("Удалить занятие из расписания?") && deleteMutation.mutate(selectedEvent.id)}
-            onCancel={() => window.confirm(`Отменить занятие?\n\n${timeRange(selectedEvent.starts_at, selectedEvent.ends_at)}\n${selectedEvent.teacher?.full_name ?? ""}\n${selectedEvent.participants.length} участник(ов)`) && cancelMutation.mutate(selectedEvent.id)}
+            onCancel={() => window.confirm(`${selectedEvent.status === "completed" ? "Отменить проведение занятия и вернуть все посещения?" : "Отменить занятие?"}\n\n${timeRange(selectedEvent.starts_at, selectedEvent.ends_at)}\n${selectedEvent.teacher?.full_name ?? ""}\n${selectedEvent.participants.length} участник(ов)`) && cancelMutation.mutate(selectedEvent.id)}
             onComplete={() => { setCompleteEvent(selectedEvent); setSelectedEvent(null); }}
             onReturn={(participantId) => returnMutation.mutate({ eventId: selectedEvent.id, participantId })}
           />
@@ -383,6 +382,7 @@ function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onRe
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
   const canDelete = event.status === "scheduled" || event.status === "cancelled";
+  const canCancel = event.status === "scheduled" || event.status === "completed";
   return (
     <div className="space-y-4">
       <div>
@@ -416,9 +416,9 @@ function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onRe
             <button className="btn-primary" onClick={onComplete}><CheckCircle2 size={17} /> Отметить проведение</button>
             <button className="btn-secondary" onClick={onEdit}>Редактировать</button>
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
-            <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> Отменить занятие</button>
           </>
         ) : null}
+        {canCancel ? <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> {event.status === "completed" ? "Отменить проведение" : "Отменить занятие"}</button> : null}
         {canDelete ? <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button> : null}
       </div>
     </div>
