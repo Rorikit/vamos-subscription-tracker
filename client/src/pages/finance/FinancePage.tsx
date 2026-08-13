@@ -111,7 +111,7 @@ function FinanceContent({
         <StatCard label="Не оплачено" value={unpaidText} hint={toCurrency(report.unpaid_expenses_total)} />
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)] gap-5">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="panel p-5">
           <SectionTitle title="Структура расходов" compact />
           <ExpenseBars report={report} />
