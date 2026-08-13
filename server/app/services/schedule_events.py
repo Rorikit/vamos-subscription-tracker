@@ -155,7 +155,7 @@ def cancel_event(db: Session, event_id: int) -> ScheduleEvent:
 def delete_event(db: Session, event_id: int) -> ScheduleEvent:
     event = get_event(db, event_id)
     if any(participant.visit_id for participant in event.participants):
-        raise HTTPException(status_code=400, detail="Нельзя удалить занятие со списаниями. Сначала верните занятия участникам.")
+        raise HTTPException(status_code=400, detail="Нельзя удалить занятие с проведенными посещениями. Сначала верните занятия участникам.")
     if event.status == ScheduleEventStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Проведенное занятие нельзя удалить")
     db.delete(event)

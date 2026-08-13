@@ -382,6 +382,7 @@ function ParticipantChoice({ participant, checked, onToggle }: { participant: Pa
 function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onReturn }: { event: ScheduleEvent; onEdit: () => void; onMove: () => void; onDelete: () => void; onCancel: () => void; onComplete: () => void; onReturn: (participantId: number) => void }) {
   const totalTeacher = event.participants.reduce((sum, item) => sum + Number(item.visit?.teacher_earning ?? 0), 0);
   const totalSchool = event.participants.reduce((sum, item) => sum + Number(item.visit?.school_earning ?? 0), 0);
+  const canDelete = event.status === "scheduled" || event.status === "cancelled";
   return (
     <div className="space-y-4">
       <div>
@@ -416,9 +417,9 @@ function EventCard({ event, onEdit, onMove, onDelete, onCancel, onComplete, onRe
             <button className="btn-secondary" onClick={onEdit}>Редактировать</button>
             <button className="btn-secondary" onClick={onMove}>Перенести</button>
             <button className="btn-secondary text-coral" onClick={onCancel}><XCircle size={17} /> Отменить занятие</button>
-            <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button>
           </>
         ) : null}
+        {canDelete ? <button className="btn-secondary text-coral" onClick={onDelete}><XCircle size={17} /> Удалить</button> : null}
       </div>
     </div>
   );
