@@ -209,7 +209,7 @@ export function SchedulePage() {
 function CalendarCanvas({ mode, start, events, teacherColor, onOpen, onCreate }: { mode: ViewMode; start: Date; events: ScheduleEvent[]; teacherColor: (id: number) => string; onOpen: (event: ScheduleEvent) => void; onCreate: (date: Date) => void }) {
   if (mode === "month") return <MonthView start={start} events={events} teacherColor={teacherColor} onOpen={onOpen} onCreate={onCreate} />;
   const days = mode === "day" ? [start] : Array.from({ length: 7 }, (_, index) => addDays(start, index));
-  const slots = Array.from({ length: 27 }, (_, index) => {
+  const slots = Array.from({ length: 31 }, (_, index) => {
     const totalMinutes = 8 * 60 + index * 30;
     return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
   });
