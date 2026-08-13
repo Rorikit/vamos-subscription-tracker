@@ -71,6 +71,11 @@ def unfreeze_membership(membership_id: int, db: Session = Depends(get_db), opera
 
 @router.post("/{membership_id}/cancel", response_model=MembershipRead)
 def cancel_membership(membership_id: int, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
+    existing = db.get(Membership, membership_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    if existing.status == MembershipStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Абонемент уже отменен")
     membership = change_status(db, membership_id, MembershipStatus.CANCELLED)
     log_action(db, operator, "membership_cancelled", "membership", membership.id, f"Абонемент #{membership.id}", after=snapshot(membership, ["status"]))
     return get_membership(membership.id, db)

@@ -16,6 +16,8 @@ export function ParticipantCardPage() {
   const id = Number(useParams().id);
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<"membership" | null>(null);
+  const [membershipError, setMembershipError] = useState<string | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const participant = useQuery({ queryKey: ["participant", id], queryFn: () => participantService.get(id) });
   const memberships = useQuery({ queryKey: ["memberships"], queryFn: () => membershipService.list("all") });
   const visits = useQuery({ queryKey: ["visits", id], queryFn: () => visitService.byParticipant(id) });
@@ -25,7 +27,22 @@ export function ParticipantCardPage() {
   const statusMutation = useMutation({
     mutationFn: ({ action, membershipId }: { action: "freeze" | "unfreeze" | "cancel"; membershipId: number }) =>
       action === "freeze" ? membershipService.freeze(membershipId) : action === "unfreeze" ? membershipService.unfreeze(membershipId) : membershipService.cancel(membershipId),
-    onSuccess: () => queryClient.invalidateQueries(),
+    onMutate: () => {
+      setMembershipError(null);
+    },
+    onSuccess: (updated) => {
+      setConfirmCancel(false);
+      queryClient.setQueriesData({ queryKey: ["memberships"] }, (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((membership) => (membership.id === updated.id ? updated : membership));
+      });
+      queryClient.invalidateQueries({ queryKey: ["memberships"] });
+      queryClient.invalidateQueries({ queryKey: ["participant", id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (error) => {
+      setMembershipError(error instanceof Error ? error.message : "Не удалось изменить статус абонемента");
+    },
   });
   const cancelVisit = useMutation({ mutationFn: visitService.cancel, onSuccess: () => queryClient.invalidateQueries() });
 
@@ -63,13 +80,34 @@ export function ParticipantCardPage() {
             </div>
             <div className="flex gap-2">
               {current.status === "frozen" ? (
-                <button className="btn-secondary" onClick={() => statusMutation.mutate({ action: "unfreeze", membershipId: current.id })}><Play size={18} /> Разморозить</button>
-              ) : (
-                <button className="btn-secondary" onClick={() => statusMutation.mutate({ action: "freeze", membershipId: current.id })}><Pause size={18} /> Заморозить</button>
-              )}
-              <button className="btn-danger" onClick={() => statusMutation.mutate({ action: "cancel", membershipId: current.id })}><XCircle size={18} /> Отменить абонемент</button>
+                <button className="btn-secondary" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ action: "unfreeze", membershipId: current.id })}><Play size={18} /> Разморозить</button>
+              ) : current.status === "active" ? (
+                <button className="btn-secondary" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ action: "freeze", membershipId: current.id })}><Pause size={18} /> Заморозить</button>
+              ) : null}
+              {current.status !== "cancelled" ? (
+                <button className="btn-danger" disabled={statusMutation.isPending} onClick={() => setConfirmCancel(true)}>
+                  <XCircle size={18} /> {statusMutation.isPending ? "Отмена..." : "Отменить абонемент"}
+                </button>
+              ) : null}
             </div>
           </div>
+          {confirmCancel ? (
+            <div className="mt-4 rounded-md border border-coral/30 bg-coral/10 p-3">
+              <div className="text-sm font-semibold text-ink">Отменить этот абонемент?</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {current.membership_type?.name ?? `Абонемент #${current.id}`} · {current.remaining_lessons} из {current.total_lessons} занятий осталось
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button className="btn-danger" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ action: "cancel", membershipId: current.id })}>
+                  <XCircle size={18} /> Да, отменить
+                </button>
+                <button className="btn-secondary" disabled={statusMutation.isPending} onClick={() => setConfirmCancel(false)}>
+                  Не отменять
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {membershipError ? <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{membershipError}</div> : null}
         </section>
       ) : null}
 
