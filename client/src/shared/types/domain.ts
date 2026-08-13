@@ -39,7 +39,6 @@ export type Membership = {
   end_date: string;
   status: MembershipStatus;
   is_currently_active: boolean;
-  paid_amount: string;
   participant?: { id: number; full_name: string; phone?: string | null } | null;
   membership_type?: { id: number; name: string } | null;
 };
@@ -70,21 +69,8 @@ export type Visit = {
   membership_type?: { id: number; name: string } | null;
 };
 
-export type Payment = {
-  id: number;
-  participant_id: number;
-  membership_id: number;
-  amount: string;
-  payment_date: string;
-  payment_method: string;
-  comment: string | null;
-  is_cancelled: boolean;
-  participant?: { id: number; full_name: string } | null;
-};
-
 export type FinanceSummary = {
   memberships_sold_total: string;
-  payments_received_total: string;
   completed_lessons_value: string;
   teacher_earnings_total: string;
   school_earnings_total: string;

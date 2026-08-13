@@ -2,20 +2,10 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher, Visit
+from app.models import Membership, MembershipStatus, MembershipType, Participant, Teacher, Visit
 from app.services.lesson_finance import calculate_visit_financials, quantize_money
-
-
-def paid_amount(db: Session, membership_id: int) -> Decimal:
-    value = (
-        db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.membership_id == membership_id, Payment.is_cancelled.is_(False))
-        .scalar()
-    )
-    return Decimal(value or 0)
 
 
 def is_currently_active(membership: Membership) -> bool:
@@ -35,11 +25,9 @@ def refresh_expired_status(db: Session, membership: Membership) -> Membership:
 
 def serialize_membership(db: Session, membership: Membership) -> dict:
     refresh_expired_status(db, membership)
-    paid = paid_amount(db, membership.id)
     return {
         **membership.__dict__,
         "is_currently_active": is_currently_active(membership),
-        "paid_amount": paid,
         "participant": membership.participant,
         "membership_type": membership.membership_type,
     }

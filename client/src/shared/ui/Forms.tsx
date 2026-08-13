@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { membershipService } from "../api/membershipService";
 import { membershipTypeService } from "../api/membershipTypeService";
 import { participantService } from "../api/participantService";
-import { paymentService } from "../api/paymentService";
 import { teacherService } from "../api/teacherService";
 import { Membership, Teacher } from "../types/domain";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -147,55 +146,6 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
       </div>
       <SubmitButton label={membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} />
       {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
-    </form>
-  );
-}
-
-export function PaymentForm({ participantId, memberships, onDone }: { participantId?: number; memberships: Membership[]; onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const [membershipId, setMembershipId] = useState(memberships[0]?.id.toString() ?? "");
-  const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [comment, setComment] = useState("");
-  const mutation = useMutation({
-    mutationFn: () =>
-      paymentService.create({
-        participant_id: participantId ?? memberships.find((membership) => membership.id === Number(membershipId))!.participant_id,
-        membership_id: Number(membershipId),
-        amount: Number(amount),
-        payment_method: paymentMethod,
-        comment,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      onDone();
-    },
-  });
-
-  return (
-    <form className="space-y-4" onSubmit={(event) => submit(event, mutation.mutate)}>
-      <label className="block text-sm font-medium text-slate-700">
-        Абонемент
-        <select className="input mt-1" value={membershipId} onChange={(event) => setMembershipId(event.target.value)} required>
-          <option value="">Выберите абонемент</option>
-          {memberships.map((membership) => (
-            <option key={membership.id} value={membership.id}>
-              #{membership.id} {membership.membership_type?.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <Field label="Сумма" value={amount} onChange={setAmount} type="number" required />
-      <label className="block text-sm font-medium text-slate-700">
-        Способ оплаты
-        <select className="input mt-1" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-          <option value="cash">Наличные</option>
-          <option value="card">Карта</option>
-          <option value="transfer">Перевод</option>
-        </select>
-      </label>
-      <Field label="Комментарий" value={comment} onChange={setComment} />
-      <SubmitButton label="Добавить оплату" pending={mutation.isPending} />
     </form>
   );
 }

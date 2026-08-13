@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import AttendanceStatus, Membership, MembershipStatus, MembershipType, Participant, Payment, ScheduleEvent, ScheduleEventParticipant, ScheduleEventStatus, ScheduleEventType, Teacher, Visit
+from app.models import AttendanceStatus, Membership, MembershipStatus, MembershipType, Participant, ScheduleEvent, ScheduleEventParticipant, ScheduleEventStatus, ScheduleEventType, Teacher, Visit
 
 
 def seed_data(db: Session) -> None:
@@ -40,15 +40,6 @@ def seed_data(db: Session) -> None:
     db.add_all(memberships)
     db.commit()
 
-    db.add_all(
-        [
-            Payment(participant_id=1, membership_id=1, amount=7200, payment_date=today - timedelta(days=9), payment_method="card", comment="Полная оплата"),
-            Payment(participant_id=2, membership_id=2, amount=2000, payment_date=today - timedelta(days=23), payment_method="cash", comment="Частичная оплата"),
-            Payment(participant_id=3, membership_id=3, amount=9600, payment_date=today - timedelta(days=48), payment_method="transfer"),
-            Payment(participant_id=4, membership_id=4, amount=3000, payment_date=today - timedelta(days=58), payment_method="cash"),
-            Payment(participant_id=5, membership_id=5, amount=5000, payment_date=today - timedelta(days=2), payment_method="card"),
-        ]
-    )
     visits = [
         Visit(participant_id=1, membership_id=1, teacher_id=1, visit_date=today - timedelta(days=8)),
         Visit(participant_id=1, membership_id=1, teacher_id=2, visit_date=today - timedelta(days=5)),

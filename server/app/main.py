@@ -7,7 +7,7 @@ from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
 from app.models import Membership, MembershipType, Participant, Payment, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
-from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, payments, schedule_events, teachers, visits
+from app.routers import audit_logs, auth, finance, membership_types, memberships, operators, participants, schedule_events, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, ensure_system_operator, get_current_operator
 from app.services.finance import ensure_teacher_seed
@@ -39,7 +39,6 @@ app.include_router(participants.router, dependencies=protected)
 app.include_router(membership_types.router, dependencies=protected)
 app.include_router(memberships.router, dependencies=protected)
 app.include_router(visits.router, dependencies=protected)
-app.include_router(payments.router, dependencies=protected)
 app.include_router(teachers.router, dependencies=protected)
 app.include_router(operators.router, dependencies=protected)
 app.include_router(finance.router, dependencies=protected)

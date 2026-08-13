@@ -144,8 +144,6 @@ function actionLabel(action: string) {
     membership_cancelled: "Отмена абонемента",
     visit_written_off: "Списание занятия",
     visit_returned: "Возврат занятия",
-    payment_created: "Добавление оплаты",
-    payment_cancelled: "Отмена оплаты",
     teacher_created: "Создание преподавателя",
     teacher_updated: "Редактирование преподавателя",
     membership_type_created: "Создание типа абонемента",
@@ -162,7 +160,6 @@ function entityLabel(entity: string) {
     participant: "Участник",
     membership: "Абонемент",
     visit: "Занятие",
-    payment: "Оплата",
     teacher: "Преподаватель",
     membership_type: "Тип абонемента",
   };

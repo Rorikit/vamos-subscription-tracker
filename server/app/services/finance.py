@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Membership, Payment, Teacher, Visit
+from app.models import Membership, Teacher, Visit
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
 
 
@@ -124,7 +124,6 @@ def get_summary(
     date_to: date | None = None,
     teacher_id: int | None = None,
     membership_type_id: int | None = None,
-    payment_method: str | None = None,
 ) -> dict:
     teacher_membership_ids: list[int] | None = None
     if teacher_id:
@@ -148,19 +147,6 @@ def get_summary(
     if membership_type_id:
         memberships_query = memberships_query.filter(Membership.membership_type_id == membership_type_id)
     memberships_sold_total = Decimal(memberships_query.scalar() or 0)
-
-    payments_query = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.is_cancelled.is_(False))
-    if date_from:
-        payments_query = payments_query.filter(Payment.payment_date >= date_from)
-    if date_to:
-        payments_query = payments_query.filter(Payment.payment_date <= date_to)
-    if teacher_membership_ids is not None:
-        payments_query = payments_query.filter(Payment.membership_id.in_(teacher_membership_ids))
-    if membership_type_id:
-        payments_query = payments_query.join(Membership, Payment.membership_id == Membership.id).filter(Membership.membership_type_id == membership_type_id)
-    if payment_method:
-        payments_query = payments_query.filter(Payment.payment_method == payment_method)
-    payments_received_total = Decimal(payments_query.scalar() or 0)
 
     visit_query = db.query(Visit).filter(Visit.is_cancelled.is_(False))
     if date_from:
@@ -194,7 +180,6 @@ def get_summary(
 
     return {
         "memberships_sold_total": quantize_money(memberships_sold_total),
-        "payments_received_total": quantize_money(payments_received_total),
         "completed_lessons_value": quantize_money(completed_lessons_value),
         "teacher_earnings_total": quantize_money(teacher_earnings_total),
         "school_earnings_total": quantize_money(school_earnings_total),

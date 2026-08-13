@@ -11,6 +11,8 @@ export function DashboardPage() {
   const earnings = useQuery({ queryKey: ["teacher-earnings", "dashboard"], queryFn: () => financeService.teacherEarnings() });
   const active = data?.memberships.filter((membership) => membership.is_currently_active) ?? [];
   const endingSoon = active.filter((membership) => daysLeft(membership.end_date) <= 7 || membership.remaining_lessons <= 2);
+  const recentMemberships = [...(data?.memberships ?? [])].sort((a, b) => b.start_date.localeCompare(a.start_date)).slice(0, 7);
+
   if (isLoading) return <div className="panel p-6">Загрузка...</div>;
 
   return (
@@ -64,17 +66,17 @@ export function DashboardPage() {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <section className="panel">
-          <Header title="Последние оплаты" link="/finance" />
+          <Header title="Последние абонементы" link="/memberships" />
           <table className="w-full">
             <thead>
               <tr><th className="th">Дата</th><th className="th">Участник</th><th className="th">Сумма</th></tr>
             </thead>
             <tbody>
-              {data?.payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="td">{toDate(payment.payment_date)}</td>
-                  <td className="td">{payment.participant?.full_name}</td>
-                  <td className="td">{toCurrency(payment.amount)}</td>
+              {recentMemberships.map((membership) => (
+                <tr key={membership.id}>
+                  <td className="td">{toDate(membership.start_date)}</td>
+                  <td className="td">{membership.participant?.full_name}</td>
+                  <td className="td">{toCurrency(membership.price)}</td>
                 </tr>
               ))}
             </tbody>

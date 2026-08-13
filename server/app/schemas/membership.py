@@ -34,7 +34,6 @@ class MembershipRead(ApiModel):
     end_date: date
     status: MembershipStatus
     is_currently_active: bool
-    paid_amount: Decimal
     participant: ParticipantSnapshot | None = None
     membership_type: MembershipTypeSnapshot | None = None
     created_at: datetime

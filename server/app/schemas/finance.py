@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from app.schemas.common import ApiModel
 from app.schemas.membership import MembershipRead
-from app.schemas.payment import PaymentRead
 from app.schemas.visit import VisitRead
 
 
@@ -37,7 +36,6 @@ class TeacherEarning(ApiModel):
 
 class FinanceSummary(ApiModel):
     memberships_sold_total: Decimal
-    payments_received_total: Decimal
     completed_lessons_value: Decimal
     teacher_earnings_total: Decimal
     school_earnings_total: Decimal
@@ -50,7 +48,6 @@ class FinanceSummary(ApiModel):
 class DashboardData(ApiModel):
     summary: FinanceSummary
     memberships: list[MembershipRead]
-    payments: list[PaymentRead]
     visits: list[VisitRead]
 
 

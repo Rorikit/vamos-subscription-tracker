@@ -14,15 +14,13 @@ export function FinancePage() {
   const [dateTo, setDateTo] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [membershipTypeId, setMembershipTypeId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
   const [dateMode, setDateMode] = useState("mixed");
   const [expandedTeacherId, setExpandedTeacherId] = useState<number | null>(null);
 
-  const filters = { date_from: dateFrom, date_to: dateTo, teacher_id: teacherId, membership_type_id: membershipTypeId, payment_method: paymentMethod };
+  const filters = { date_from: dateFrom, date_to: dateTo, teacher_id: teacherId, membership_type_id: membershipTypeId };
   const summary = useQuery({ queryKey: ["finance-summary", filters], queryFn: () => financeService.summary(filters) });
   const teachers = useQuery({ queryKey: ["teachers"], queryFn: teacherService.list });
   const membershipTypes = useQuery({ queryKey: ["membership-types"], queryFn: membershipTypeService.list });
-  const payments = useQuery({ queryKey: ["finance-payments", filters], queryFn: () => financeService.payments(filters) });
   const earnings = useQuery({
     queryKey: ["teacher-earnings", filters],
     queryFn: () => financeService.teacherEarnings({ ...filters, include_cancelled: true }),
@@ -35,12 +33,12 @@ export function FinancePage() {
       <div>
         <h1 className="text-2xl font-bold text-ink">Финансы</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Продажи, оплаты, проведенные занятия, выплаты преподавателям и доход школы.
+          Продажи абонементов, проведенные занятия, выплаты преподавателям и доход школы.
         </p>
       </div>
 
       <section className="panel p-5">
-        <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-end gap-4">
+        <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] items-end gap-4">
           <label className="block text-sm font-medium text-slate-700">
             Период с
             <input className="input mt-1" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
@@ -70,24 +68,14 @@ export function FinancePage() {
             </select>
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Способ оплаты
-            <select className="input mt-1" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-              <option value="">Все способы</option>
-              <option value="cash">Наличные</option>
-              <option value="card">Карта</option>
-              <option value="transfer">Перевод</option>
-            </select>
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
             Дата отчета
             <select className="input mt-1" value={dateMode} onChange={(event) => setDateMode(event.target.value)}>
               <option value="mixed">По смыслу операции</option>
-              <option value="payment">По дате оплаты</option>
               <option value="visit">По дате занятия</option>
               <option value="sale">По дате продажи</option>
             </select>
           </label>
-          <button className="btn-secondary" onClick={() => { setDateFrom(""); setDateTo(""); setTeacherId(""); setMembershipTypeId(""); setPaymentMethod(""); setDateMode("mixed"); }}>
+          <button className="btn-secondary" onClick={() => { setDateFrom(""); setDateTo(""); setTeacherId(""); setMembershipTypeId(""); setDateMode("mixed"); }}>
             <RefreshCw size={17} />
             Сбросить
           </button>
@@ -100,13 +88,12 @@ export function FinancePage() {
 
       {selectedTeacherName ? (
         <div className="rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">
-          Показатели продаж и оплат отфильтрованы по абонементам, где были занятия преподавателя: <b>{selectedTeacherName}</b>.
+          Показатели продаж отфильтрованы по абонементам, где были занятия преподавателя: <b>{selectedTeacherName}</b>.
         </div>
       ) : null}
 
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <StatCard label="Продажи абонементов" value={toCurrency(summary.data?.memberships_sold_total ?? 0)} hint="По дате начала абонемента" />
-        <StatCard label="Получено оплат" value={toCurrency(summary.data?.payments_received_total ?? 0)} hint="Неотмененные платежи" />
         <StatCard label="Проведено занятий" value={summary.data?.completed_visits_count ?? 0} />
         <StatCard label="Стоимость проведенных занятий" value={toCurrency(summary.data?.completed_lessons_value ?? 0)} hint="Только проведенные занятия" />
         <StatCard label="Выплаты преподавателям" value={toCurrency(summary.data?.teacher_earnings_total ?? 0)} />
@@ -129,37 +116,6 @@ export function FinancePage() {
             expandedTeacherId={expandedTeacherId}
             onToggle={(id) => setExpandedTeacherId(expandedTeacherId === id ? null : id)}
           />
-        ) : null}
-      </section>
-
-      <section className="panel overflow-hidden">
-        <SectionTitle title="Оплаты" />
-        {!payments.isLoading && payments.data?.length === 0 ? <EmptyBlock text="Пока нет финансовых операций за выбранный период. Добавьте участников, абонементы и оплаты, чтобы увидеть отчет." /> : null}
-        {payments.data?.length ? (
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="th">Дата</th>
-                <th className="th">Участник</th>
-                <th className="th">Абонемент</th>
-                <th className="th">Сумма</th>
-                <th className="th">Способ</th>
-                <th className="th">Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.data.map((payment) => (
-                <tr key={payment.id} className={payment.is_cancelled ? "opacity-55" : ""}>
-                  <td className="td">{toDate(payment.payment_date)}</td>
-                  <td className="td">{payment.participant?.full_name ?? "—"}</td>
-                  <td className="td">#{payment.membership_id}</td>
-                  <td className="td font-semibold text-ink">{toCurrency(payment.amount)}</td>
-                  <td className="td">{paymentMethodLabel(payment.payment_method)}</td>
-                  <td className="td">{payment.is_cancelled ? "Отменена" : "Активна"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         ) : null}
       </section>
     </div>
@@ -237,7 +193,7 @@ function VisitDetails({ item }: { item: TeacherEarning }) {
           <th className="th">Дата</th>
           <th className="th">Ученик</th>
           <th className="th">Абонемент</th>
-          <th className="th">Цена занятия</th>
+          <th className="th">Цена за занятие</th>
           <th className="th">Ставка преподавателю</th>
           <th className="th">Выплата</th>
           <th className="th">Доход школы</th>
@@ -305,13 +261,4 @@ function initials(name: string) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
-}
-
-function paymentMethodLabel(method: string) {
-  const labels: Record<string, string> = {
-    cash: "Наличные",
-    card: "Карта",
-    transfer: "Перевод",
-  };
-  return labels[method] ?? method;
 }

@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Payment, Teacher
+from app.models import Membership, MembershipStatus, MembershipType, Participant, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
 from app.services.memberships import cancel_visit, create_membership, create_visit_from_completed_lesson
 
@@ -37,8 +37,6 @@ class FinanceSnapshotTest(unittest.TestCase):
             status=MembershipStatus.ACTIVE,
         )
         self.db.add(membership)
-        self.db.commit()
-        self.db.add(Payment(participant_id=participant.id, membership_id=membership.id, amount=Decimal("14400"), payment_date=date.today(), payment_method="cash"))
         self.db.commit()
         self.participant_id = participant.id
         self.teacher_id = teacher.id
@@ -88,7 +86,7 @@ class FinanceSnapshotTest(unittest.TestCase):
         self.assertEqual(get_summary(self.db, teacher_id=self.teacher_id)["completed_visits_count"], 1)
         self.assertEqual(get_teacher_earnings(self.db, teacher_id=self.teacher_id)[0]["visits_count"], 1)
 
-    def test_teacher_filter_limits_sales_and_payments_to_teacher_memberships(self) -> None:
+    def test_teacher_filter_limits_sales_to_teacher_memberships(self) -> None:
         second_participant = Participant(full_name="Мария Соколова")
         second_teacher = Teacher(full_name="Ольга Сергеева")
         self.db.add_all([second_participant, second_teacher])
@@ -107,9 +105,6 @@ class FinanceSnapshotTest(unittest.TestCase):
         )
         self.db.add(second_membership)
         self.db.commit()
-        self.db.add(Payment(participant_id=second_participant.id, membership_id=second_membership.id, amount=Decimal("8000"), payment_date=date.today(), payment_method="cash"))
-        self.db.commit()
-
         create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         create_visit_from_completed_lesson(self.db, second_participant.id, second_membership.id, second_teacher.id, date.today())
 
@@ -117,9 +112,8 @@ class FinanceSnapshotTest(unittest.TestCase):
         teacher_summary = get_summary(self.db, teacher_id=self.teacher_id)
 
         self.assertEqual(all_summary["memberships_sold_total"], Decimal("22400.00"))
-        self.assertEqual(all_summary["payments_received_total"], Decimal("22400.00"))
         self.assertEqual(teacher_summary["memberships_sold_total"], Decimal("14400.00"))
-        self.assertEqual(teacher_summary["payments_received_total"], Decimal("14400.00"))
+        self.assertEqual(teacher_summary["completed_visits_count"], 1)
 
     def test_zero_total_lessons_is_rejected(self) -> None:
         membership = self.db.get(Membership, self.membership_id)
