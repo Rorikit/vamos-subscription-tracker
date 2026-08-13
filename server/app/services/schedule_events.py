@@ -59,7 +59,10 @@ def get_event(db: Session, event_id: int) -> ScheduleEvent:
 
 def create_events(db: Session, payload: ScheduleEventCreate) -> list[ScheduleEvent]:
     validate_event_payload(db, payload.teacher_id, payload.starts_at, payload.ends_at, payload.event_type, payload.participant_ids)
-    rule = normalize_recurrence_rule(payload.recurrence)
+    recurrence = payload.recurrence
+    if payload.event_type == ScheduleEventType.COURSE and not recurrence:
+        recurrence = {"frequency": "weekly", "count": 4}
+    rule = normalize_recurrence_rule(recurrence)
     occurrences = generate_occurrences(payload.starts_at, payload.ends_at, rule)
     recurrence_group_id = make_recurrence_group_id() if len(occurrences) > 1 else None
     recurrence_rule = json.dumps(rule, ensure_ascii=False) if rule else None

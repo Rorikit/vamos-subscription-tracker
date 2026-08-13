@@ -16,6 +16,7 @@ class ScheduleEventStatus(str, Enum):
 class ScheduleEventType(str, Enum):
     GROUP = "group"
     INDIVIDUAL = "individual"
+    COURSE = "course"
     OTHER = "other"
 
 

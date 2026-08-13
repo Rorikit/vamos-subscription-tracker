@@ -106,6 +106,14 @@ class ScheduleEventTest(unittest.TestCase):
         self.assertEqual(len(events), 4)
         self.assertTrue(events[0].recurrence_group_id)
 
+    def test_course_event_creates_four_week_series(self) -> None:
+        events = create_events(self.db, self.payload(event_type="course", recurrence=None))
+
+        self.assertEqual(len(events), 4)
+        self.assertTrue(events[0].recurrence_group_id)
+        self.assertEqual([(event.starts_at - events[0].starts_at).days for event in events], [0, 7, 14, 21])
+        self.assertTrue(all(event.event_type == "course" for event in events))
+
     def test_teacher_conflict_and_adjacent_event(self) -> None:
         create_events(self.db, self.payload())
         with self.assertRaises(HTTPException):

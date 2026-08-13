@@ -22,6 +22,7 @@ const statusLabels: Record<ScheduleEventStatus, string> = {
 const eventTypeLabels: Record<ScheduleEventType, string> = {
   group: "Групповое",
   individual: "Индивидуальное",
+  course: "Курс",
   other: "Другое",
 };
 
@@ -143,6 +144,7 @@ export function SchedulePage() {
               <option value="">Все типы</option>
               <option value="group">Групповое</option>
               <option value="individual">Индивидуальное</option>
+              <option value="course">Курс</option>
               <option value="other">Другое</option>
             </select>
           </label>
@@ -377,6 +379,7 @@ function ScheduleEventForm({ event, anchorDate, draft, onDone }: { event?: Sched
         <select className="input mt-1" value={eventType} onChange={(item) => setEventType(item.target.value as ScheduleEventType)}>
           <option value="group">Групповое</option>
           <option value="individual">Индивидуальное</option>
+          <option value="course">Курс</option>
           <option value="other">Другое</option>
         </select>
       </label>

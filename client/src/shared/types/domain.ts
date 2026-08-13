@@ -176,7 +176,7 @@ export type AuditLog = {
 };
 
 export type ScheduleEventStatus = "scheduled" | "completed" | "cancelled";
-export type ScheduleEventType = "group" | "individual" | "other";
+export type ScheduleEventType = "group" | "individual" | "course" | "other";
 export type AttendanceStatus = "planned" | "attended" | "absent" | "cancelled" | "refunded";
 
 export type ScheduleEventParticipant = {
