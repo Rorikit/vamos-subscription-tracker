@@ -105,6 +105,15 @@ def cancel_practice_rental(db: Session, rental_id: int, operator: Operator) -> P
     return rental
 
 
+def delete_practice_rental(db: Session, rental_id: int) -> PracticeRental:
+    rental = db.get(PracticeRental, rental_id)
+    if not rental:
+        raise HTTPException(status_code=404, detail="Запись практики не найдена")
+    db.delete(rental)
+    db.commit()
+    return rental
+
+
 def list_practice_rentals(
     db: Session,
     date_from: date | None = None,

@@ -36,6 +36,8 @@ export const practiceService = {
     api<PracticeRental>("/practice-rentals", { method: "POST", body: JSON.stringify(payload) }),
   cancel: (id: number) =>
     api<PracticeRental>(`/practice-rentals/${id}/cancel`, { method: "POST" }),
+  delete: (id: number) =>
+    api<void>(`/practice-rentals/${id}`, { method: "DELETE" }),
   tariffs: (activeOnly = false) =>
     api<PracticeTariff[]>(`/practice-tariffs${activeOnly ? "?active_only=true" : ""}`),
   createTariff: (payload: { name: string; price: string; is_active: boolean; sort_order: number }) =>

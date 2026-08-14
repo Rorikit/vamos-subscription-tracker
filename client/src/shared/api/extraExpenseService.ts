@@ -36,4 +36,6 @@ export const extraExpenseService = {
     api<ExtraExpense>(`/extra-expenses/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   cancel: (id: number) =>
     api<ExtraExpense>(`/extra-expenses/${id}/cancel`, { method: "POST" }),
+  delete: (id: number) =>
+    api<void>(`/extra-expenses/${id}`, { method: "DELETE" }),
 };

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Pencil, Plus, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { useAuth } from "../../app/auth/AuthProvider";
 import { toCurrency, toDate } from "../../shared/api/client";
@@ -15,6 +15,7 @@ export function ExtraExpensesPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canMutate = auth.operator?.role === "admin" || auth.operator?.role === "operator";
+  const canDelete = auth.operator?.role === "admin";
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -38,6 +39,10 @@ export function ExtraExpensesPage() {
     mutationFn: extraExpenseService.cancel,
     onSuccess: invalidateExtraExpenseData(queryClient),
   });
+  const deleteExpense = useMutation({
+    mutationFn: extraExpenseService.delete,
+    onSuccess: invalidateExtraExpenseData(queryClient),
+  });
 
   function shiftMonth(step: number) {
     const next = new Date(monthDate);
@@ -48,6 +53,12 @@ export function ExtraExpensesPage() {
   function handleCancel(expense: ExtraExpense) {
     if (window.confirm(`Отменить расход «${expense.title}» на ${toCurrency(expense.amount)}?`)) {
       cancelExpense.mutate(expense.id);
+    }
+  }
+
+  function handleDelete(expense: ExtraExpense) {
+    if (window.confirm(`Удалить расход «${expense.title}» полностью? Запись исчезнет из истории.`)) {
+      deleteExpense.mutate(expense.id);
     }
   }
 
@@ -122,10 +133,17 @@ export function ExtraExpensesPage() {
                     <td className="td">{expense.created_by_name ?? "—"}</td>
                     <td className="td"><StatusBadge status={expense.status} /></td>
                     <td className="td">
-                      {canMutate && expense.status === "active" ? (
+                      {canMutate || canDelete ? (
                         <div className="flex flex-wrap gap-2">
-                          <button className="btn-secondary h-9 px-3" onClick={() => setEditingExpense(expense)}><Pencil size={16} /> Редактировать</button>
-                          <button className="btn-secondary h-9 px-3 text-coral" onClick={() => handleCancel(expense)} disabled={cancelExpense.isPending}><RotateCcw size={16} /> Отменить</button>
+                          {canMutate && expense.status === "active" ? (
+                            <>
+                              <button className="btn-secondary h-9 px-3" onClick={() => setEditingExpense(expense)}><Pencil size={16} /> Редактировать</button>
+                              <button className="btn-secondary h-9 px-3 text-coral" onClick={() => handleCancel(expense)} disabled={cancelExpense.isPending}><RotateCcw size={16} /> Отменить</button>
+                            </>
+                          ) : null}
+                          {canDelete ? (
+                            <button className="btn-danger h-9 px-3" onClick={() => handleDelete(expense)} disabled={deleteExpense.isPending}><Trash2 size={16} /> Удалить</button>
+                          ) : null}
                         </div>
                       ) : "—"}
                     </td>

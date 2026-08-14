@@ -13,6 +13,7 @@ from app.services.auth import hash_password
 from app.services.extra_expenses import (
     cancel_extra_expense,
     create_extra_expense,
+    delete_extra_expense,
     get_extra_expense_summary,
     list_extra_expenses,
     update_extra_expense,
@@ -85,6 +86,17 @@ class ExtraExpenseTest(unittest.TestCase):
             cancel_extra_expense(self.db, expense.id, self.operator)
         with self.assertRaises(HTTPException):
             update_extra_expense(self.db, expense.id, {"amount": Decimal("1000")})
+
+    def test_delete_removes_expense_from_history_and_finance(self) -> None:
+        expense = self._create("Замена замка", Decimal("8000"), date(2026, 8, 14))
+        self.assertEqual(get_monthly_report(self.db, 2026, 8)["extra_expenses_total"], Decimal("8000.00"))
+
+        delete_extra_expense(self.db, expense.id)
+
+        self.assertEqual(list_extra_expenses(self.db), [])
+        self.assertEqual(get_monthly_report(self.db, 2026, 8)["extra_expenses_total"], Decimal("0.00"))
+        with self.assertRaises(HTTPException):
+            delete_extra_expense(self.db, expense.id)
 
     def test_search_and_created_at_does_not_affect_period(self) -> None:
         expense = self._create("Мелкий ремонт", Decimal("5700"), date(2026, 8, 14))

@@ -7,10 +7,11 @@ from app.database import get_db
 from app.models import ExtraExpense, ExtraExpenseStatus, Operator
 from app.schemas.extra_expense import ExtraExpenseCreate, ExtraExpenseRead, ExtraExpenseSummary, ExtraExpenseUpdate
 from app.services.audit import log_action, snapshot
-from app.services.auth import get_current_operator, require_operator_access
+from app.services.auth import get_current_operator, require_admin, require_operator_access
 from app.services.extra_expenses import (
     cancel_extra_expense,
     create_extra_expense,
+    delete_extra_expense,
     get_extra_expense_summary,
     list_extra_expenses,
     serialize_extra_expense,
@@ -65,3 +66,13 @@ def cancel_item(expense_id: int, db: Session = Depends(get_db), operator: Operat
     expense = cancel_extra_expense(db, expense_id, operator)
     log_action(db, operator, "extra_expense_cancelled", "extra_expense", expense.id, expense.title, after={"amount": str(expense.amount), "date": str(expense.expense_date), "user_id": operator.id})
     return serialize_extra_expense(expense)
+
+
+@router.delete("/{expense_id}", status_code=204)
+def delete_item(expense_id: int, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
+    current = db.get(ExtraExpense, expense_id)
+    before = snapshot(current, ["title", "amount", "expense_date", "comment", "status"]) if current else None
+    label = current.title if current else None
+    delete_extra_expense(db, expense_id)
+    log_action(db, operator, "extra_expense_deleted", "extra_expense", expense_id, label, before=before)
+    return None

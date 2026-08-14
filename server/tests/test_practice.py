@@ -11,7 +11,7 @@ from app.models import Membership, MembershipStatus, MembershipType, Operator, O
 from app.schemas.practice import PracticeRentalCreate
 from app.services.auth import hash_password
 from app.services.finance import get_summary, get_teacher_earnings
-from app.services.practice import cancel_practice_rental, create_practice_rental, ensure_practice_tariffs, get_practice_summary, list_practice_rentals, update_practice_tariff
+from app.services.practice import cancel_practice_rental, create_practice_rental, delete_practice_rental, ensure_practice_tariffs, get_practice_summary, list_practice_rentals, update_practice_tariff
 
 
 class PracticeRentalTest(unittest.TestCase):
@@ -92,6 +92,17 @@ class PracticeRentalTest(unittest.TestCase):
         self.assertEqual(get_summary(self.db)["income_total"], Decimal("8000.00"))
         with self.assertRaises(HTTPException):
             cancel_practice_rental(self.db, rental.id, self.operator)
+
+    def test_delete_removes_practice_rental_from_history_and_summary(self) -> None:
+        rental = self._create(self.tariffs[1].id, customer_name="Александр")
+        self.assertEqual(get_practice_summary(self.db)["income_total"], Decimal("500.00"))
+
+        delete_practice_rental(self.db, rental.id)
+
+        self.assertEqual(list_practice_rentals(self.db), [])
+        self.assertEqual(get_practice_summary(self.db)["income_total"], Decimal("0.00"))
+        with self.assertRaises(HTTPException):
+            delete_practice_rental(self.db, rental.id)
 
     def test_practice_does_not_create_schedule_visit_membership_or_teacher_earnings(self) -> None:
         membership_lessons = self.membership.remaining_lessons

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Operator, PracticeRentalStatus, PracticeTariff
+from app.models import Operator, PracticeRental, PracticeRentalStatus, PracticeTariff
 from app.schemas.practice import (
     PracticeRentalCreate,
     PracticeRentalRead,
@@ -19,6 +19,7 @@ from app.services.practice import (
     cancel_practice_rental,
     create_practice_rental,
     create_practice_tariff,
+    delete_practice_rental,
     get_practice_summary,
     list_practice_rentals,
     list_practice_tariffs,
@@ -87,3 +88,13 @@ def cancel_rental(rental_id: int, db: Session = Depends(get_db), operator: Opera
     rental = cancel_practice_rental(db, rental_id, operator)
     log_action(db, operator, "practice_rental_cancelled", "practice_rental", rental.id, rental.customer_name, after=snapshot(rental, ["status", "cancelled_at", "cancelled_by_user_id"]))
     return serialize_practice_rental(rental)
+
+
+@router.delete("/practice-rentals/{rental_id}", status_code=204)
+def delete_rental(rental_id: int, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
+    rental = db.get(PracticeRental, rental_id)
+    before = snapshot(rental, ["customer_name", "tariff_name_snapshot", "amount", "practiced_at", "status"]) if rental else None
+    label = rental.customer_name if rental else None
+    delete_practice_rental(db, rental_id)
+    log_action(db, operator, "practice_rental_deleted", "practice_rental", rental_id, label, before=before)
+    return None

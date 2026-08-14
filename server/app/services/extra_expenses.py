@@ -58,6 +58,15 @@ def cancel_extra_expense(db: Session, expense_id: int, operator: Operator) -> Ex
     return expense
 
 
+def delete_extra_expense(db: Session, expense_id: int) -> ExtraExpense:
+    expense = db.get(ExtraExpense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Внештатный расход не найден")
+    db.delete(expense)
+    db.commit()
+    return expense
+
+
 def list_extra_expenses(
     db: Session,
     date_from: date | None = None,

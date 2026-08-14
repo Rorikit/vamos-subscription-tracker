@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { useAuth } from "../../app/auth/AuthProvider";
 import { toCurrency, toDate } from "../../shared/api/client";
@@ -16,6 +16,7 @@ export function PracticePage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const canMutate = auth.operator?.role === "admin" || auth.operator?.role === "operator";
+  const canDelete = auth.operator?.role === "admin";
   const [dateFrom, setDateFrom] = useState(today.slice(0, 8) + "01");
   const [dateTo, setDateTo] = useState(today);
   const [search, setSearch] = useState("");
@@ -39,17 +40,22 @@ export function PracticePage() {
 
   const cancelRental = useMutation({
     mutationFn: practiceService.cancel,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["practice-rentals"] });
-      queryClient.invalidateQueries({ queryKey: ["practice-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["finance-monthly-report"] });
-      queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
-    },
+    onSuccess: () => invalidatePracticeData(queryClient),
+  });
+  const deleteRental = useMutation({
+    mutationFn: practiceService.delete,
+    onSuccess: () => invalidatePracticeData(queryClient),
   });
 
   function handleCancel(rental: PracticeRental) {
     if (window.confirm(`Отменить практику ${rental.customer_name} на ${toCurrency(rental.amount)}?`)) {
       cancelRental.mutate(rental.id);
+    }
+  }
+
+  function handleDelete(rental: PracticeRental) {
+    if (window.confirm(`Удалить практику ${rental.customer_name} полностью? Запись исчезнет из истории.`)) {
+      deleteRental.mutate(rental.id);
     }
   }
 
@@ -137,10 +143,19 @@ export function PracticePage() {
                     <td className="td"><PracticeStatus status={rental.status} /></td>
                     <td className="td">{rental.created_by_name ?? "—"}</td>
                     <td className="td">
-                      {canMutate && rental.status === "active" ? (
-                        <button className="btn-secondary h-9 px-3 text-coral" onClick={() => handleCancel(rental)} disabled={cancelRental.isPending}>
-                          <RotateCcw size={16} /> Отменить
-                        </button>
+                      {canMutate || canDelete ? (
+                        <div className="flex flex-wrap gap-2">
+                          {canMutate && rental.status === "active" ? (
+                            <button className="btn-secondary h-9 px-3 text-coral" onClick={() => handleCancel(rental)} disabled={cancelRental.isPending}>
+                              <RotateCcw size={16} /> Отменить
+                            </button>
+                          ) : null}
+                          {canDelete ? (
+                            <button className="btn-danger h-9 px-3" onClick={() => handleDelete(rental)} disabled={deleteRental.isPending}>
+                              <Trash2 size={16} /> Удалить
+                            </button>
+                          ) : null}
+                        </div>
                       ) : "—"}
                     </td>
                   </tr>
@@ -156,6 +171,13 @@ export function PracticePage() {
       </Modal>
     </div>
   );
+}
+
+function invalidatePracticeData(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["practice-rentals"] });
+  queryClient.invalidateQueries({ queryKey: ["practice-summary"] });
+  queryClient.invalidateQueries({ queryKey: ["finance-monthly-report"] });
+  queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
 }
 
 function PracticeForm({ onDone }: { onDone: () => void }) {
