@@ -61,7 +61,7 @@ export function PaymentObligationsPage() {
         <p className="mt-1 text-sm text-slate-500">Операционный список платежей текущего месяца без доступа к финансовой аналитике.</p>
       </div>
 
-      {obligations.isError ? <ErrorState onRetry={() => obligations.refetch()} /> : null}
+      {obligations.isError ? <ErrorState error={obligations.error instanceof Error ? obligations.error.message : null} onRetry={() => obligations.refetch()} /> : null}
       {obligations.data ? (
         <>
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-5 py-4">
@@ -170,10 +170,10 @@ function StatusBadge({ status }: { status: PaymentObligation["status"] }) {
   return <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${classes[status]}`}>{labels[status]}</span>;
 }
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
+function ErrorState({ error, onRetry }: { error: string | null; onRetry: () => void }) {
   return (
     <div className="panel flex items-center justify-between border-red-100 bg-red-50 p-4 text-sm text-red-700">
-      <span>Не удалось загрузить обязательные платежи.</span>
+      <span>Не удалось загрузить обязательные платежи{error ? `: ${error}` : "."}</span>
       <button className="btn-secondary h-9 bg-white" onClick={onRetry}>Повторить</button>
     </div>
   );
