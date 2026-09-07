@@ -14,9 +14,11 @@ from app.services.auth import (
     ensure_system_operator,
     require_admin,
     require_finance_access,
+    require_finance_manage,
     require_operator_access,
     validate_password_policy,
 )
+from app.services.permissions import Permission, has_permission
 
 
 class AccessPolicyCoverageTest(unittest.TestCase):
@@ -101,6 +103,23 @@ class AccessPolicyCoverageTest(unittest.TestCase):
         self.assertIs(require_finance_access(self.finance), self.finance)
         with self.assertRaises(HTTPException):
             require_finance_access(self.operator)
+
+        self.assertIs(require_finance_manage(self.admin), self.admin)
+        self.assertIs(require_finance_manage(self.finance), self.finance)
+        with self.assertRaises(HTTPException):
+            require_finance_manage(self.operator)
+
+    def test_permission_matrix_separates_finance_and_payment_obligations(self) -> None:
+        self.assertTrue(has_permission(self.admin, Permission.FINANCE_VIEW))
+        self.assertTrue(has_permission(self.admin, Permission.PAYMENT_OBLIGATION_MARK_PAID))
+
+        self.assertFalse(has_permission(self.operator, Permission.FINANCE_VIEW))
+        self.assertFalse(has_permission(self.operator, Permission.FINANCE_MANAGE))
+        self.assertTrue(has_permission(self.operator, Permission.PAYMENT_OBLIGATION_VIEW))
+        self.assertTrue(has_permission(self.operator, Permission.PAYMENT_OBLIGATION_MARK_PAID))
+
+        self.assertTrue(has_permission(self.finance, Permission.FINANCE_VIEW))
+        self.assertFalse(has_permission(self.finance, Permission.PAYMENT_OBLIGATION_VIEW))
 
 
 if __name__ == "__main__":

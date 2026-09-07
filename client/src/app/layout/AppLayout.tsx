@@ -1,9 +1,9 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, Dumbbell, LayoutDashboard, LogOut, ReceiptText, Settings, Ticket, Users } from "lucide-react";
+import { CalendarCheck, CalendarDays, ClipboardList, CreditCard, Dumbbell, LayoutDashboard, LogOut, ReceiptText, Settings, Ticket, Users, WalletCards } from "lucide-react";
 
 import { useAuth } from "../auth/AuthProvider";
-import { financeService } from "../../shared/api/financeService";
+import { notificationService } from "../../shared/api/notificationService";
 import { toCurrency } from "../../shared/api/client";
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },
   { to: "/memberships", label: "Абонементы", icon: Ticket, roles: ["admin", "operator"] },
   { to: "/practice", label: "Практика", icon: Dumbbell, roles: ["admin", "operator", "finance"] },
+  { to: "/payment-obligations", label: "Обязательные платежи", icon: WalletCards, roles: ["admin", "operator"] },
   { to: "/extra-expenses", label: "Внештатные расходы", icon: ReceiptText, roles: ["admin", "operator", "finance"] },
   { to: "/finance", label: "Финансы", icon: CreditCard, roles: ["admin", "finance"] },
   { to: "/audit-logs", label: "Журнал", icon: ClipboardList, roles: ["admin"] },
@@ -22,13 +23,12 @@ export function AppLayout() {
   const auth = useAuth();
   const role = auth.operator?.role ?? "operator";
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
-  const canSeeFinance = role === "admin" || role === "finance";
-  const reminders = useQuery({
-    queryKey: ["finance-reminders"],
-    queryFn: () => financeService.reminderStatus(),
-    enabled: canSeeFinance,
+  const notifications = useQuery({
+    queryKey: ["notifications", "summary"],
+    queryFn: () => notificationService.summary(),
     retry: false,
   });
+  const paymentNotification = notifications.data?.items.find((item) => item.type === "expense_payment_due");
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -76,9 +76,11 @@ export function AppLayout() {
           </div>
         </header>
         <div className="flex-1 p-8">
-          {reminders.data?.active ? (
-            <Link to="/finance#reminders" className="mb-5 block rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-              Есть неоплаченные обязательные расходы: {reminders.data.unpaid_count} на сумму {toCurrency(reminders.data.unpaid_total)}. Перейти к оплатам
+          {paymentNotification ? (
+            <Link to={paymentNotification.action} className="mb-5 block rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              {paymentNotification.amount
+                ? `Не оплачено ${paymentNotification.count} обязательных расхода на сумму ${toCurrency(paymentNotification.amount)}. Перейти к оплатам`
+                : `Есть неоплаченные обязательные платежи: ${paymentNotification.count}. Проверить`}
             </Link>
           ) : null}
           <Outlet />

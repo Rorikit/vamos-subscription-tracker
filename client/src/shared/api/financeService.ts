@@ -20,7 +20,7 @@ export const financeService = {
     return api<TeacherEarning[]>(`/finance/teacher-earnings${search.toString() ? `?${search}` : ""}`);
   },
   dashboard: () =>
-    api<{ summary: FinanceSummary; memberships: Membership[]; visits: Visit[] }>("/finance/dashboard"),
+    api<{ summary: FinanceSummary; memberships: Membership[]; visits: Visit[] }>("/dashboard"),
   monthlyReport: (params: { year: number; month: number }) =>
     api<FinanceMonthlyReport>(`/finance/monthly-report?year=${params.year}&month=${params.month}`),
   expenses: (params: { year: number; month: number }) =>

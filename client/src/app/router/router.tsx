@@ -11,6 +11,7 @@ import { LoginPage } from "../../pages/login/LoginPage";
 import { MembershipsPage } from "../../pages/memberships/MembershipsPage";
 import { ParticipantCardPage } from "../../pages/participant-card/ParticipantCardPage";
 import { ParticipantsPage } from "../../pages/participants/ParticipantsPage";
+import { PaymentObligationsPage } from "../../pages/payment-obligations/PaymentObligationsPage";
 import { PracticePage } from "../../pages/practice/PracticePage";
 import { SchedulePage } from "../../pages/schedule/SchedulePage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
@@ -35,6 +36,7 @@ export const router = createBrowserRouter(
         { path: "participants/:id", element: <RoleRoute roles={["admin", "operator"]}><ParticipantCardPage /></RoleRoute> },
         { path: "memberships", element: <RoleRoute roles={["admin", "operator"]}><MembershipsPage /></RoleRoute> },
         { path: "practice", element: <RoleRoute roles={["admin", "operator", "finance"]}><PracticePage /></RoleRoute> },
+        { path: "payment-obligations", element: <RoleRoute roles={["admin", "operator"]}><PaymentObligationsPage /></RoleRoute> },
         { path: "extra-expenses", element: <RoleRoute roles={["admin", "operator", "finance"]}><ExtraExpensesPage /></RoleRoute> },
         { path: "finance", element: <RoleRoute roles={["admin", "finance"]}><FinancePage /></RoleRoute> },
         { path: "audit-logs", element: <RoleRoute roles={["admin"]}><AuditLogsPage /></RoleRoute> },

@@ -140,6 +140,44 @@ export type ReminderStatus = {
   unpaid_total: string;
 };
 
+export type PaymentObligation = {
+  id: number;
+  name: string;
+  planned_amount: string;
+  actual_amount: string | null;
+  display_amount: string;
+  due_date: string;
+  reminder_day: number;
+  paid: boolean;
+  paid_at: string | null;
+  paid_by_user_id: number | null;
+  paid_by_name: string | null;
+  status: "paid" | "pending" | "due_today" | "overdue";
+  is_variable: boolean;
+  comment: string | null;
+};
+
+export type PaymentObligationSummary = {
+  year: number;
+  month: number;
+  total_count: number;
+  unpaid_count: number;
+  due_today_count: number;
+  overdue_count: number;
+  paid_count: number;
+  items: PaymentObligation[];
+};
+
+export type NotificationSummary = {
+  items: Array<{
+    type: string;
+    count: number;
+    severity: "warning" | "info" | "error" | string;
+    action: string;
+    amount: string | null;
+  }>;
+};
+
 export type TeacherEarningVisit = {
   visit_id: number;
   visit_date: string;

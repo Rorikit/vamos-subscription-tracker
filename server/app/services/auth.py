@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.operator import Operator, OperatorRole
+from app.services.permissions import Permission, require_permission
 
 PASSWORD_ITERATIONS = 260_000
 TOKEN_TTL_HOURS = int(os.getenv("AUTH_TOKEN_TTL_HOURS", "24"))
@@ -103,9 +104,11 @@ def require_admin(operator: Operator = Depends(get_current_operator)) -> Operato
 
 
 def require_finance_access(operator: Operator = Depends(get_current_operator)) -> Operator:
-    if operator.role not in {OperatorRole.ADMIN, OperatorRole.FINANCE}:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав для финансов")
-    return operator
+    return require_permission(operator, Permission.FINANCE_VIEW, "Недостаточно прав для финансов")
+
+
+def require_finance_manage(operator: Operator = Depends(get_current_operator)) -> Operator:
+    return require_permission(operator, Permission.FINANCE_MANAGE, "Недостаточно прав для управления финансами")
 
 
 def require_operator_access(operator: Operator = Depends(get_current_operator)) -> Operator:

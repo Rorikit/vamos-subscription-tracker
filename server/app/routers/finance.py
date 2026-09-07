@@ -8,7 +8,7 @@ from app.models import Membership, MonthlyExpense, Operator, Visit
 from app.schemas.finance import FinanceMonthlyReport, FinanceSummary, MonthlyExpenseRead, MonthlyExpenseUpdate, ReminderStatus, TeacherEarning
 from app.schemas.visit import VisitRead
 from app.services.audit import log_action, snapshot
-from app.services.auth import require_finance_access
+from app.services.auth import require_finance_access, require_finance_manage
 from app.services.finance import get_monthly_report, get_reminder_status, get_summary, get_teacher_earnings, list_monthly_expenses, mark_expense_paid, mark_expense_unpaid, update_monthly_expense
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -64,7 +64,7 @@ def patch_expense(
     expense_id: int,
     payload: MonthlyExpenseUpdate,
     db: Session = Depends(get_db),
-    operator: Operator = Depends(require_finance_access),
+    operator: Operator = Depends(require_finance_manage),
 ):
     current = db.get(MonthlyExpense, expense_id)
     before = snapshot(current, ["planned_amount", "actual_amount", "comment"]) if current else None
@@ -78,7 +78,7 @@ def patch_expense(
 def pay_expense(
     expense_id: int,
     db: Session = Depends(get_db),
-    operator: Operator = Depends(require_finance_access),
+    operator: Operator = Depends(require_finance_manage),
 ):
     expense = mark_expense_paid(db, expense_id, operator)
     log_action(db, operator, "expense_paid", "monthly_expense", expense.id, expense.category.name if expense.category else None, after=snapshot(expense, ["paid", "paid_at", "paid_by_user_id"]))
@@ -90,7 +90,7 @@ def pay_expense(
 def unpay_expense(
     expense_id: int,
     db: Session = Depends(get_db),
-    operator: Operator = Depends(require_finance_access),
+    operator: Operator = Depends(require_finance_manage),
 ):
     expense = mark_expense_unpaid(db, expense_id)
     log_action(db, operator, "expense_unpaid", "monthly_expense", expense.id, expense.category.name if expense.category else None, after=snapshot(expense, ["paid", "paid_at", "paid_by_user_id"]))
@@ -121,7 +121,10 @@ def reminders(
 
 
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(
+    db: Session = Depends(get_db),
+    _operator: Operator = Depends(require_finance_access),
+):
     from app.services.memberships import serialize_membership
 
     memberships = (
