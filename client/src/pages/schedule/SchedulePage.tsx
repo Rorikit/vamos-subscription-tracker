@@ -646,7 +646,7 @@ function timeRange(start: string, end: string) {
 function toIsoDateTime(date: string, time: string) {
   if (!date || !time) return null;
   const value = new Date(`${date}T${time}`);
-  return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  return Number.isNaN(value.getTime()) ? null : `${date}T${time}:00`;
 }
 
 function makeDraft(date: Date): EventDraft {
