@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models import Operator, Teacher
 from app.schemas.teacher import TeacherCreate, TeacherRead, TeacherUpdate
 from app.services.audit import log_action, snapshot
-from app.services.auth import require_admin
+from app.services.auth import require_operator_access
 
 router = APIRouter(prefix="/teachers", tags=["teachers"])
 
@@ -24,7 +24,7 @@ def get_teacher(teacher_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=TeacherRead)
-def create_teacher(payload: TeacherCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
+def create_teacher(payload: TeacherCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     teacher = Teacher(**payload.model_dump())
     db.add(teacher)
     db.commit()
@@ -34,7 +34,7 @@ def create_teacher(payload: TeacherCreate, db: Session = Depends(get_db), operat
 
 
 @router.patch("/{teacher_id}", response_model=TeacherRead)
-def update_teacher(teacher_id: int, payload: TeacherUpdate, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
+def update_teacher(teacher_id: int, payload: TeacherUpdate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     teacher = db.get(Teacher, teacher_id)
     if not teacher:
         raise HTTPException(status_code=404, detail="Преподаватель не найден")

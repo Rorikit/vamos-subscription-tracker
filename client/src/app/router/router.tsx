@@ -15,6 +15,7 @@ import { PaymentObligationsPage } from "../../pages/payment-obligations/PaymentO
 import { PracticePage } from "../../pages/practice/PracticePage";
 import { SchedulePage } from "../../pages/schedule/SchedulePage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
+import { TeachersPage } from "../../pages/teachers/TeachersPage";
 
 const basename = (import.meta.env.VITE_BASE_PATH ?? "/").replace(/\/$/, "") || "/";
 
@@ -35,6 +36,7 @@ export const router = createBrowserRouter(
         { path: "participants", element: <RoleRoute roles={["admin", "operator"]}><ParticipantsPage /></RoleRoute> },
         { path: "participants/:id", element: <RoleRoute roles={["admin", "operator"]}><ParticipantCardPage /></RoleRoute> },
         { path: "memberships", element: <RoleRoute roles={["admin", "operator"]}><MembershipsPage /></RoleRoute> },
+        { path: "teachers", element: <RoleRoute roles={["admin", "operator"]}><TeachersPage /></RoleRoute> },
         { path: "practice", element: <RoleRoute roles={["admin", "operator", "finance"]}><PracticePage /></RoleRoute> },
         { path: "payment-obligations", element: <RoleRoute roles={["admin", "operator"]}><PaymentObligationsPage /></RoleRoute> },
         { path: "extra-expenses", element: <RoleRoute roles={["admin", "operator", "finance"]}><ExtraExpensesPage /></RoleRoute> },
