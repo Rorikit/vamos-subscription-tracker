@@ -49,6 +49,18 @@ compose_path.write_text("\\n".join(out) + "\\n")
 PY
 }
 
+has_caddy_service() {
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config --services | grep -qx caddy
+}
+
+reload_caddy() {
+  if ! has_caddy_service; then
+    return 0
+  fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
+}
+
 git fetch origin "$BRANCH"
 
 current_commit="$(git rev-parse HEAD)"
@@ -56,7 +68,9 @@ remote_commit="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$current_commit" = "$remote_commit" ]; then
   apply_caddy_bind_ip
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d caddy
+  if has_caddy_service; then
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d caddy
+  fi
   echo "Already up to date: $current_commit"
   exit 0
 fi
@@ -70,16 +84,12 @@ python3 docs/architecture/refresh_snapshot.py
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
-if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps caddy >/dev/null 2>&1; then
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
-fi
+reload_caddy
 
 if [ "${BOOTSTRAP_V1_STAGING:-true}" = "true" ] && [ "$APP_DIR" = "/opt/vamos-subscription-tracker" ]; then
   APP_DIR="$V1_APP_DIR" BRANCH="$V1_BRANCH" bash "$APP_DIR/deploy/bootstrap-v1-staging.sh"
   apply_caddy_bind_ip
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile || \
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart caddy
+  reload_caddy
 fi
 
 if [ -f "$APP_DIR/deploy/vamos-backup.service" ] && [ -f "$APP_DIR/deploy/vamos-backup.timer" ]; then
