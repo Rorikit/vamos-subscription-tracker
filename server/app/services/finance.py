@@ -6,8 +6,9 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import ExpenseCategory, Membership, MonthlyExpense, Operator, Teacher, Visit
+from app.models import ExpenseCategory, FinancialEntry, FinancialEntryType, Membership, MonthlyExpense, Operator, Teacher, Visit
 from app.services.extra_expenses import get_extra_expenses_total
+from app.services.financial_ledger import create_visit_entries, current_membership_revision, reverse_visit_entries
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
 from app.services.practice import get_practice_income
 
@@ -132,7 +133,7 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
     expenses_total = quantize_money(regular_expenses_total + teacher_expense_total + extra_expenses_total)
     memberships_sold_total = quantize_money(Decimal(summary["memberships_sold_total"]))
     practice_income = quantize_money(Decimal(summary["practice_income"]))
-    income_total = quantize_money(memberships_sold_total + practice_income)
+    income_total = quantize_money(Decimal(summary["income_total"]))
     net_result = quantize_money(income_total - expenses_total)
     unpaid = [item for item in serialized_expenses if not item["paid"]]
     unpaid_total = quantize_money(sum((Decimal(item["effective_amount"]) for item in unpaid), Decimal("0")))
@@ -167,6 +168,7 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
         "date_to": date_to,
         "income_total": income_total,
         "memberships_sold_total": memberships_sold_total,
+        "completed_lessons_value": summary["completed_lessons_value"],
         "practice_income": practice_income,
         "regular_expenses_total": regular_expenses_total,
         "expenses_total": expenses_total,
@@ -286,6 +288,12 @@ def get_teacher_earnings(
             ensure_visit_financials(visit)
         except HTTPException:
             continue
+        if visit.membership:
+            revision = current_membership_revision(db, visit.membership, visit.visit_date)
+            visit.membership_revision_id = revision.id
+            create_visit_entries(db, visit, revision)
+            if visit.is_cancelled:
+                reverse_visit_entries(db, visit)
         db.add(visit)
         valid_visits.append(visit)
     db.commit()
@@ -402,14 +410,47 @@ def get_summary(
             ensure_visit_financials(visit)
         except HTTPException:
             continue
+        if visit.membership:
+            revision = current_membership_revision(db, visit.membership, visit.visit_date)
+            visit.membership_revision_id = revision.id
+            create_visit_entries(db, visit, revision)
+            if visit.is_cancelled:
+                reverse_visit_entries(db, visit)
         db.add(visit)
         valid_visits.append(visit)
     db.commit()
     visits = valid_visits
 
-    completed_lessons_value = sum((Decimal(visit.lesson_price or 0) for visit in visits), Decimal("0"))
-    teacher_earnings_total = sum((Decimal(visit.teacher_earning or 0) for visit in visits), Decimal("0"))
-    school_earnings_total = sum((Decimal(visit.school_earning or 0) for visit in visits), Decimal("0"))
+    ledger_query = db.query(FinancialEntry).join(Visit, FinancialEntry.visit_id == Visit.id).filter(
+        FinancialEntry.entry_type.in_(
+            [
+                FinancialEntryType.LESSON_INCOME,
+                FinancialEntryType.LESSON_REVERSAL,
+                FinancialEntryType.TEACHER_ACCRUAL,
+                FinancialEntryType.TEACHER_ACCRUAL_REVERSAL,
+            ]
+        )
+    )
+    if date_from:
+        ledger_query = ledger_query.filter(FinancialEntry.effective_date >= date_from)
+    if date_to:
+        ledger_query = ledger_query.filter(FinancialEntry.effective_date <= date_to)
+    if teacher_id:
+        ledger_query = ledger_query.filter(Visit.teacher_id == teacher_id)
+    if membership_type_id:
+        ledger_query = ledger_query.join(Membership, FinancialEntry.membership_id == Membership.id).filter(Membership.membership_type_id == membership_type_id)
+    ledger_entries = ledger_query.all()
+    completed_lessons_value = sum(
+        (Decimal(entry.amount) * (Decimal("-1") if entry.entry_type == FinancialEntryType.LESSON_REVERSAL else Decimal("1")))
+        for entry in ledger_entries
+        if entry.entry_type in {FinancialEntryType.LESSON_INCOME, FinancialEntryType.LESSON_REVERSAL}
+    )
+    teacher_earnings_total = sum(
+        (Decimal(entry.amount) * (Decimal("-1") if entry.entry_type == FinancialEntryType.TEACHER_ACCRUAL_REVERSAL else Decimal("1")))
+        for entry in ledger_entries
+        if entry.entry_type in {FinancialEntryType.TEACHER_ACCRUAL, FinancialEntryType.TEACHER_ACCRUAL_REVERSAL}
+    )
+    school_earnings_total = completed_lessons_value - teacher_earnings_total
     completed_visits_count = len(visits)
     active_teachers_query = db.query(Teacher).filter(Teacher.is_active.is_(True))
     if teacher_id:
@@ -421,7 +462,7 @@ def get_summary(
     return {
         "memberships_sold_total": quantize_money(memberships_sold_total),
         "practice_income": practice_income,
-        "income_total": quantize_money(memberships_sold_total + practice_income),
+        "income_total": quantize_money(completed_lessons_value + practice_income),
         "extra_expenses_total": extra_expenses_total,
         "completed_lessons_value": quantize_money(completed_lessons_value),
         "teacher_earnings_total": quantize_money(teacher_earnings_total),

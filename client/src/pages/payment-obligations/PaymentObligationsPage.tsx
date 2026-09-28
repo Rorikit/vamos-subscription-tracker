@@ -23,6 +23,19 @@ export function PaymentObligationsPage() {
     return monthFormatter.format(new Date(obligations.data.year, obligations.data.month - 1, 1));
   }, [obligations.data]);
 
+  const sortedItems = useMemo(() => {
+    const priority: Record<PaymentObligation["status"], number> = {
+      overdue: 0,
+      due_today: 1,
+      upcoming: 2,
+      pending: 3,
+      paid: 4,
+    };
+    return [...(obligations.data?.items ?? [])].sort(
+      (left, right) => priority[left.status] - priority[right.status] || left.due_date.localeCompare(right.due_date),
+    );
+  }, [obligations.data]);
+
   const pay = useMutation({
     mutationFn: ({ obligation, actual_amount }: { obligation: PaymentObligation; actual_amount?: string }) =>
       paymentObligationService.pay(obligation.id, actual_amount ? { actual_amount } : {}),
@@ -72,8 +85,9 @@ export function PaymentObligationsPage() {
             <WalletCards className="text-mint" size={26} />
           </div>
 
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <StatCard label="К оплате" value={obligations.data.unpaid_count} hint="Ожидают отметки" />
+            <StatCard label="Скоро" value={obligations.data.upcoming_count} hint="Срок в ближайшие 3 дня" />
             <StatCard label="Просрочено" value={obligations.data.overdue_count} hint="Срок уже прошел" />
             <StatCard label="Сегодня" value={obligations.data.due_today_count} hint="Срок оплаты сегодня" />
             <StatCard label="Оплачено" value={obligations.data.paid_count} hint="Закрыто за месяц" />
@@ -83,7 +97,7 @@ export function PaymentObligationsPage() {
             <div className="border-b border-slate-100 px-5 py-4 font-bold text-ink">Список обязательных платежей</div>
             {obligations.data.items.length ? (
               <div className="divide-y divide-slate-100">
-                {obligations.data.items.map((item) => (
+                {sortedItems.map((item) => (
                   <div key={item.id} className="grid grid-cols-[minmax(260px,1fr)_160px_170px_180px_220px] items-center gap-4 px-5 py-4">
                     <div>
                       <div className="font-semibold text-ink">{item.name}</div>
@@ -158,12 +172,14 @@ function StatusBadge({ status }: { status: PaymentObligation["status"] }) {
   const labels = {
     paid: "Оплачено",
     pending: "Ожидает оплаты",
+    upcoming: "Срок скоро",
     due_today: "К оплате сегодня",
     overdue: "Просрочено",
   };
   const classes = {
     paid: "bg-emerald-50 text-emerald-700",
     pending: "bg-slate-100 text-slate-600",
+    upcoming: "bg-sky-50 text-sky-700",
     due_today: "bg-amber-50 text-amber-700",
     overdue: "bg-red-50 text-red-700",
   };

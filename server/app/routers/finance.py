@@ -4,14 +4,36 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Membership, MonthlyExpense, Operator, Visit
+from app.models import FinancialEntry, Membership, MonthlyExpense, Operator, Visit
 from app.schemas.finance import FinanceMonthlyReport, FinanceSummary, MonthlyExpenseRead, MonthlyExpenseUpdate, ReminderStatus, TeacherEarning
+from app.schemas.membership_finance import FinancialEntryRead
 from app.schemas.visit import VisitRead
 from app.services.audit import log_action, snapshot
 from app.services.auth import require_finance_access, require_finance_manage
 from app.services.finance import get_monthly_report, get_reminder_status, get_summary, get_teacher_earnings, list_monthly_expenses, mark_expense_paid, mark_expense_unpaid, update_monthly_expense
 
 router = APIRouter(prefix="/finance", tags=["finance"])
+
+
+@router.get("/ledger", response_model=list[FinancialEntryRead])
+def financial_ledger(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    membership_id: int | None = Query(default=None),
+    participant_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _operator: Operator = Depends(require_finance_access),
+):
+    query = db.query(FinancialEntry)
+    if date_from:
+        query = query.filter(FinancialEntry.effective_date >= date_from)
+    if date_to:
+        query = query.filter(FinancialEntry.effective_date <= date_to)
+    if membership_id:
+        query = query.filter(FinancialEntry.membership_id == membership_id)
+    if participant_id:
+        query = query.filter(FinancialEntry.participant_id == participant_id)
+    return query.order_by(FinancialEntry.effective_date.desc(), FinancialEntry.id.desc()).limit(1000).all()
 
 
 @router.get("/summary", response_model=FinanceSummary)

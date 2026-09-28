@@ -2,8 +2,8 @@
   "schema_version": 2,
   "metadata": {
     "project_name": "Vamos Subscription Tracker",
-    "generated_at": "2026-09-07T16:03:59+03:00",
-    "git_commit": "79ea17d",
+    "generated_at": "2026-09-28T13:29:47+03:00",
+    "git_commit": "6ec72f4",
     "git_branch": "develop",
     "backend_stack": [
       "Python",

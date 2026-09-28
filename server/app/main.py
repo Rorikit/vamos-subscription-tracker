@@ -6,11 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, SessionLocal, engine
-from app.models import ExtraExpense, Membership, MembershipType, Participant, Payment, PracticeRental, PracticeTariff, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
+from app.models import ExtraExpense, FinancialEntry, Membership, MembershipChange, MembershipRevision, MembershipType, Participant, Payment, PracticeRental, PracticeTariff, ScheduleEvent, ScheduleEventParticipant, Teacher, Visit
 from app.routers import audit_logs, auth, dashboard, expense_categories, extra_expenses, finance, membership_types, memberships, notifications, operators, participants, payment_obligations, practice, schedule_events, teachers, visits
 from app.seed import seed_data
 from app.services.auth import ensure_default_operator, ensure_system_operator, get_current_operator
 from app.services.finance import ensure_expense_categories, ensure_teacher_seed
+from app.services.financial_ledger import backfill_financial_ledger
 from app.services.lesson_finance import backfill_visit_financials
 from app.services.practice import ensure_practice_tariffs
 
@@ -86,7 +87,10 @@ def remove_demo_seed_data(db) -> None:
     if not has_only_demo_data:
         return
 
+    db.query(FinancialEntry).delete()
+    db.query(MembershipChange).delete()
     db.query(Visit).delete()
+    db.query(MembershipRevision).delete()
     db.query(Payment).delete()
     db.query(Membership).delete()
     db.query(Participant).delete()
@@ -107,6 +111,7 @@ def on_startup() -> None:
         else:
             remove_demo_seed_data(db)
         backfill_visit_financials(db)
+        backfill_financial_ledger(db)
         ensure_expense_categories(db)
         ensure_practice_tariffs(db)
         ensure_default_operator(db)
@@ -193,6 +198,11 @@ def migrate_local_sqlite(db) -> None:
         return
 
     visit_columns = {column["name"] for column in inspector.get_columns("visits")}
+    if "membership_revision_id" not in visit_columns:
+        db.execute(text("alter table visits add column membership_revision_id integer"))
+        db.commit()
+        inspector = inspect(bind)
+        visit_columns = {column["name"] for column in inspector.get_columns("visits")}
     if "teacher_id" not in visit_columns:
         ensure_teacher_seed(db)
         teacher_id = db.execute(text("select id from teachers order by id limit 1")).scalar()

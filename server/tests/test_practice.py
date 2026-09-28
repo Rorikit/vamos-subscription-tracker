@@ -83,13 +83,13 @@ class PracticeRentalTest(unittest.TestCase):
         rental = self._create(self.tariffs[1].id, customer_name="Александр")
         self.assertEqual(get_practice_summary(self.db)["income_total"], Decimal("500.00"))
         self.assertEqual(get_summary(self.db)["practice_income"], Decimal("500.00"))
-        self.assertEqual(get_summary(self.db)["income_total"], Decimal("8500.00"))
+        self.assertEqual(get_summary(self.db)["income_total"], Decimal("500.00"))
 
         cancel_practice_rental(self.db, rental.id, self.operator)
 
         self.assertEqual(get_practice_summary(self.db)["income_total"], Decimal("0.00"))
         self.assertEqual(get_summary(self.db)["practice_income"], Decimal("0.00"))
-        self.assertEqual(get_summary(self.db)["income_total"], Decimal("8000.00"))
+        self.assertEqual(get_summary(self.db)["income_total"], Decimal("0.00"))
         with self.assertRaises(HTTPException):
             cancel_practice_rental(self.db, rental.id, self.operator)
 

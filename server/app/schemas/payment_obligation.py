@@ -39,6 +39,7 @@ class PaymentObligationSummary(ApiModel):
     month: int
     total_count: int
     unpaid_count: int
+    upcoming_count: int
     due_today_count: int
     overdue_count: int
     paid_count: int

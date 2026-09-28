@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import unittest
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -62,7 +63,7 @@ class FinanceExpensesTest(unittest.TestCase):
         report = get_monthly_report(self.db, 2026, 8)
         teacher_expense = next(item for item in report["expenses"] if item["category_name"] == TEACHER_EXPENSE_CATEGORY_NAME)
 
-        self.assertEqual(report["income_total"], Decimal("10000.00"))
+        self.assertEqual(report["income_total"], Decimal("1000.00"))
         self.assertEqual(teacher_expense["effective_amount"], Decimal("400.00"))
         self.assertIn(teacher_expense["category_id"], [item["category_id"] for item in report["chart"]])
         self.assertEqual(report["net_result"], report["income_total"] - report["expenses_total"])
@@ -81,7 +82,8 @@ class FinanceExpensesTest(unittest.TestCase):
         self.assertFalse(september_expense["paid"])
 
     def test_reminder_status_is_inactive_before_due_day_for_selected_month(self) -> None:
-        status = get_reminder_status(self.db, 2026, 9)
+        future = date.today().replace(day=28) + timedelta(days=10)
+        status = get_reminder_status(self.db, future.year, future.month)
 
         self.assertFalse(status["active"])
         self.assertEqual(status["unpaid_count"], 0)
@@ -130,11 +132,48 @@ class FinanceExpensesTest(unittest.TestCase):
         self.db.commit()
 
         before = get_notification_summary(self.db, self.work_operator)
-        mark_payment_obligation_paid(self.db, expense.id, self.work_operator)
+        current = list_current_payment_obligations(self.db)
+        for item in current["items"]:
+            if item["status"] in {"due_today", "overdue"} and not item["paid"]:
+                actual_amount = item["planned_amount"] if item["is_variable"] and item["name"] != TEACHER_EXPENSE_CATEGORY_NAME else None
+                mark_payment_obligation_paid(self.db, item["id"], self.work_operator, actual_amount)
         after = get_notification_summary(self.db, self.work_operator)
 
         self.assertEqual(before["items"][0]["action"], "/payment-obligations")
         self.assertEqual(after["items"], [])
+
+    def test_operator_receives_upcoming_payment_notification_without_finance_amount(self) -> None:
+        class FixedDate(date):
+            @classmethod
+            def today(cls) -> "FixedDate":
+                return cls(2026, 9, 10)
+
+        category = ExpenseCategory(
+            name="Ближайший платеж",
+            default_amount=Decimal("1500"),
+            is_variable=False,
+            reminder_day=12,
+        )
+        self.db.add(category)
+        self.db.commit()
+        self.db.add(MonthlyExpense(category_id=category.id, year=2026, month=9, planned_amount=Decimal("1500")))
+        self.db.commit()
+
+        with (
+            patch("app.services.finance.date", FixedDate),
+            patch("app.services.payment_obligations.date", FixedDate),
+            patch("app.services.notifications.date", FixedDate),
+        ):
+            summary = get_notification_summary(self.db, self.work_operator)
+
+        notification = summary["items"][0]
+        self.assertEqual(notification["severity"], "info")
+        self.assertEqual(notification["upcoming_count"], 1)
+        self.assertEqual(notification["due_today_count"], 0)
+        self.assertEqual(notification["overdue_count"], 0)
+        self.assertEqual(notification["nearest_due_date"], FixedDate(2026, 9, 12))
+        self.assertEqual(notification["action"], "/payment-obligations")
+        self.assertIsNone(notification["amount"])
 
 
 if __name__ == "__main__":

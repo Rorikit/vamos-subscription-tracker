@@ -22,6 +22,14 @@ class MembershipUpdate(BaseModel):
     end_date: date | None = None
 
 
+class MembershipReplace(BaseModel):
+    membership_type_id: int
+    teacher_lesson_rate: Decimal | None = Field(default=None, ge=0)
+    effective_date: date | None = None
+    transfer_mode: str = Field(default="lessons", pattern="^lessons$")
+    reason: str = Field(min_length=3, max_length=500)
+
+
 class MembershipRead(ApiModel):
     id: int
     participant_id: int

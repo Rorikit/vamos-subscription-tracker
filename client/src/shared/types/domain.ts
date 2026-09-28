@@ -1,4 +1,4 @@
-export type MembershipStatus = "active" | "finished" | "expired" | "frozen" | "cancelled";
+export type MembershipStatus = "active" | "finished" | "expired" | "frozen" | "cancelled" | "replaced";
 
 export type Participant = {
   id: number;
@@ -71,10 +71,10 @@ export type Visit = {
 
 export type FinanceSummary = {
   memberships_sold_total: string;
+  completed_lessons_value: string;
   practice_income: string;
   income_total: string;
   extra_expenses_total: string;
-  completed_lessons_value: string;
   teacher_earnings_total: string;
   school_earnings_total: string;
   completed_visits_count: number;
@@ -118,6 +118,7 @@ export type FinanceMonthlyReport = {
   date_to: string;
   income_total: string;
   memberships_sold_total: string;
+  completed_lessons_value: string;
   practice_income: string;
   regular_expenses_total: string;
   expenses_total: string;
@@ -152,7 +153,7 @@ export type PaymentObligation = {
   paid_at: string | null;
   paid_by_user_id: number | null;
   paid_by_name: string | null;
-  status: "paid" | "pending" | "due_today" | "overdue";
+  status: "paid" | "pending" | "upcoming" | "due_today" | "overdue";
   is_variable: boolean;
   comment: string | null;
 };
@@ -162,6 +163,7 @@ export type PaymentObligationSummary = {
   month: number;
   total_count: number;
   unpaid_count: number;
+  upcoming_count: number;
   due_today_count: number;
   overdue_count: number;
   paid_count: number;
@@ -175,6 +177,10 @@ export type NotificationSummary = {
     severity: "warning" | "info" | "error" | string;
     action: string;
     amount: string | null;
+    upcoming_count: number;
+    due_today_count: number;
+    overdue_count: number;
+    nearest_due_date: string | null;
   }>;
 };
 

@@ -44,6 +44,8 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
   const [teacherLessonRate, setTeacherLessonRate] = useState(membership?.teacher_lesson_rate ?? "");
   const [startDate, setStartDate] = useState(membership?.start_date ?? "");
   const [endDate, setEndDate] = useState(membership?.end_date ?? "");
+  const [replacementReason, setReplacementReason] = useState("");
+  const [replacementDate, setReplacementDate] = useState(new Date().toISOString().slice(0, 10));
   const [participantSearch, setParticipantSearch] = useState("");
   const debouncedSearch = useDebouncedValue(participantSearch, 300);
   const participants = useQuery({
@@ -57,6 +59,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
   const lessonPrice = lessonCount > 0 ? coursePrice / lessonCount : 0;
   const teacherTotal = Number(teacherLessonRate || 0) * lessonCount;
   const schoolTotal = Math.max(coursePrice - teacherTotal, 0);
+  const isReplacing = Boolean(membership && Number(membershipTypeId) !== membership.membership_type_id);
   function selectMembershipType(value: string) {
     setMembershipTypeId(value);
     const nextType = types.data?.find((type) => String(type.id) === value);
@@ -73,6 +76,15 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
   const mutation = useMutation({
     mutationFn: () => {
       if (membership) {
+        if (isReplacing) {
+          return membershipService.replace(membership.id, {
+            membership_type_id: Number(membershipTypeId),
+            teacher_lesson_rate: Number(teacherLessonRate),
+            effective_date: replacementDate,
+            transfer_mode: "lessons",
+            reason: replacementReason,
+          });
+        }
         return membershipService.update(membership.id, {
           total_lessons: Number(totalLessons),
           remaining_lessons: Number(remainingLessons),
@@ -115,7 +127,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
       ) : null}
       <label className="block text-sm font-medium text-slate-700">
         Тип абонемента
-        <select className="input mt-1" value={membershipTypeId} onChange={(event) => selectMembershipType(event.target.value)} required disabled={Boolean(membership)}>
+        <select className="input mt-1" value={membershipTypeId} onChange={(event) => selectMembershipType(event.target.value)} required>
           <option value="">Выберите тип</option>
           {types.data?.map((type) => (
             <option key={type.id} value={type.id}>
@@ -124,6 +136,19 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
           ))}
         </select>
       </label>
+      {isReplacing ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-bold">Смена абонемента</div>
+          <p className="mt-1">Проведённые занятия сохранят прежнюю стоимость. Остаток занятий будет перенесён в новый абонемент.</p>
+          <div className="mt-3">
+            <Field label="Дата смены" value={replacementDate} onChange={setReplacementDate} type="date" required />
+          </div>
+          <label className="mt-3 block font-medium">
+            Причина смены
+            <textarea className="textarea mt-1" value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} />
+          </label>
+        </div>
+      ) : null}
       <div className="rounded-md border border-slate-200 p-4">
         <div className="font-bold text-ink">Основная информация</div>
         <div className="mt-3 grid grid-cols-2 gap-3">
@@ -144,7 +169,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
           Заработок школы: {formatMoney(schoolTotal)}. Backend проверит итоговые значения при сохранении.
         </p>
       </div>
-      <SubmitButton label={membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} />
+      <SubmitButton label={isReplacing ? "Заменить абонемент" : membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} />
       {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
     </form>
   );

@@ -106,7 +106,7 @@ function FinanceContent({
       ) : null}
 
       <div className="grid grid-cols-4 gap-4">
-        <StatCard label="Доходы" value={toCurrency(report.income_total)} hint="Абонементы и практика" />
+        <StatCard label="Доходы" value={toCurrency(report.income_total)} hint="Проведённые занятия и практика" />
         <StatCard label="Расходы" value={toCurrency(report.expenses_total)} hint="Обязательные платежи и выплаты" />
         <StatCard label={Number(report.net_result) >= 0 ? "Прибыль" : "Убыток"} value={toCurrency(report.net_result)} hint="Доходы минус расходы" />
         <StatCard label="Не оплачено" value={unpaidText} hint={toCurrency(report.unpaid_expenses_total)} />
@@ -115,7 +115,7 @@ function FinanceContent({
       <section className="panel p-5">
         <SectionTitle title="Структура доходов" compact />
         <div className="mt-4 grid grid-cols-3 gap-3">
-          <IncomeItem label="Абонементы" value={report.memberships_sold_total} />
+          <IncomeItem label="Проведённые занятия" value={report.completed_lessons_value} />
           <IncomeItem label="Практика" value={report.practice_income} />
           <IncomeItem label="Всего" value={report.income_total} strong />
         </div>

@@ -66,6 +66,8 @@ git reset --hard "$remote_commit"
 
 apply_caddy_bind_ip
 
+python3 docs/architecture/refresh_snapshot.py
+
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up --build -d
 
 if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps caddy >/dev/null 2>&1; then

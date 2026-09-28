@@ -2,13 +2,33 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Membership, MembershipStatus, Operator
-from app.schemas.membership import MembershipCreate, MembershipRead, MembershipUpdate
+from app.models import Membership, MembershipChange, MembershipRevision, MembershipStatus, Operator
+from app.schemas.membership_finance import MembershipChangeRead, MembershipRevisionRead
+from app.schemas.membership import MembershipCreate, MembershipRead, MembershipReplace, MembershipUpdate
 from app.services.audit import log_action, snapshot
 from app.services.auth import require_admin, require_operator_access
-from app.services.memberships import change_status, create_membership, serialize_membership, unfreeze, update_membership
+from app.services.memberships import change_status, create_membership, replace_membership, serialize_membership, unfreeze, update_membership
 
 router = APIRouter(prefix="/memberships", tags=["memberships"])
+
+
+@router.get("/{membership_id}/revisions", response_model=list[MembershipRevisionRead])
+def list_membership_revisions(membership_id: int, db: Session = Depends(get_db)):
+    if not db.get(Membership, membership_id):
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    return db.query(MembershipRevision).filter(MembershipRevision.membership_id == membership_id).order_by(MembershipRevision.revision_number).all()
+
+
+@router.get("/{membership_id}/changes", response_model=list[MembershipChangeRead])
+def list_membership_changes(membership_id: int, db: Session = Depends(get_db)):
+    if not db.get(Membership, membership_id):
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    return (
+        db.query(MembershipChange)
+        .filter((MembershipChange.old_membership_id == membership_id) | (MembershipChange.new_membership_id == membership_id))
+        .order_by(MembershipChange.created_at)
+        .all()
+    )
 
 
 @router.get("", response_model=list[MembershipRead])
@@ -50,8 +70,36 @@ def patch_membership(membership_id: int, payload: MembershipUpdate, db: Session 
     if not existing:
         raise HTTPException(status_code=404, detail="Абонемент не найден")
     before = snapshot(existing, ["total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "start_date", "end_date", "status"])
-    membership = update_membership(db, membership_id, payload.model_dump(exclude_unset=True))
+    membership = update_membership(db, membership_id, payload.model_dump(exclude_unset=True), operator.id)
     log_action(db, operator, "membership_updated", "membership", membership.id, f"Абонемент #{membership.id}", before=before, after=snapshot(membership, ["total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "start_date", "end_date", "status"]))
+    return get_membership(membership.id, db)
+
+
+@router.post("/{membership_id}/replace", response_model=MembershipRead)
+def replace_membership_route(
+    membership_id: int,
+    payload: MembershipReplace,
+    db: Session = Depends(get_db),
+    operator: Operator = Depends(require_operator_access),
+):
+    membership = replace_membership(
+        db,
+        membership_id,
+        payload.membership_type_id,
+        payload.teacher_lesson_rate,
+        payload.effective_date,
+        payload.reason,
+        operator.id,
+    )
+    log_action(
+        db,
+        operator,
+        "membership_replaced",
+        "membership",
+        membership.id,
+        f"Абонемент #{membership_id} → #{membership.id}",
+        after={"old_membership_id": membership_id, "new_membership_id": membership.id, "membership_type_id": membership.membership_type_id},
+    )
     return get_membership(membership.id, db)
 
 

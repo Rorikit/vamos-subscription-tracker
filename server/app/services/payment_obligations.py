@@ -23,6 +23,7 @@ def list_payment_obligations(db: Session, year: int, month: int, status: str | N
         "month": month,
         "total_count": len(items),
         "unpaid_count": len([item for item in items if not item["paid"]]),
+        "upcoming_count": len([item for item in items if item["status"] == "upcoming"]),
         "due_today_count": len([item for item in items if item["status"] == "due_today"]),
         "overdue_count": len([item for item in items if item["status"] == "overdue"]),
         "paid_count": len([item for item in items if item["paid"]]),
@@ -90,19 +91,23 @@ def _get_current_expense(db: Session, expense_id: int, today: date) -> MonthlyEx
 def _serialize_obligation(expense: MonthlyExpense, teacher_expense_total: Decimal) -> dict:
     display_amount = _effective_amount(expense, teacher_expense_total)
     due_day = min(expense.category.reminder_day, monthrange(expense.year, expense.month)[1])
+    due_date = date(expense.year, expense.month, due_day)
+    status = _expense_status(expense)
+    if status == "pending" and 0 < (due_date - date.today()).days <= 3:
+        status = "upcoming"
     return {
         "id": expense.id,
         "name": expense.category.name,
         "planned_amount": quantize_money(expense.planned_amount or 0),
         "actual_amount": quantize_money(expense.actual_amount) if expense.actual_amount is not None else None,
         "display_amount": display_amount,
-        "due_date": date(expense.year, expense.month, due_day),
+        "due_date": due_date,
         "reminder_day": expense.category.reminder_day,
         "paid": expense.paid,
         "paid_at": expense.paid_at.date() if expense.paid_at else None,
         "paid_by_user_id": expense.paid_by_user_id,
         "paid_by_name": expense.paid_by.full_name if expense.paid_by else None,
-        "status": _expense_status(expense),
+        "status": status,
         "is_variable": expense.category.is_variable,
         "comment": expense.comment,
     }

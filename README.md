@@ -236,6 +236,14 @@ systemctl status vamos-auto-deploy.timer
 journalctl -u vamos-auto-deploy.service -n 100 --no-pager
 ```
 
+Перед Docker build автодеплой запускает:
+
+```bash
+python3 docs/architecture/refresh_snapshot.py
+```
+
+Скрипт обновляет `metadata.generated_at`, `metadata.git_commit`, `metadata.git_branch` в `docs/architecture/architecture_snapshot.json` и валидирует внутренние ссылки snapshot. Если проверка падает, деплой останавливается до сборки контейнеров.
+
 Отключить автодеплой:
 
 ```bash

@@ -13,6 +13,7 @@ const filters: Array<{ value: MembershipStatus | "all"; label: string }> = [
   { value: "expired", label: "Просроченные" },
   { value: "frozen", label: "Замороженные" },
   { value: "cancelled", label: "Отмененные" },
+  { value: "replaced", label: "Замененные" },
 ];
 
 export function MembershipsPage() {

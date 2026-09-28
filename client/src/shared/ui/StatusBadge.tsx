@@ -6,6 +6,7 @@ const labels: Record<MembershipStatus, string> = {
   expired: "Просрочен",
   frozen: "Заморожен",
   cancelled: "Отменен",
+  replaced: "Заменен",
 };
 
 const styles: Record<MembershipStatus, string> = {
@@ -14,6 +15,7 @@ const styles: Record<MembershipStatus, string> = {
   expired: "bg-amber-50 text-amber-700 ring-amber-200",
   frozen: "bg-sky-50 text-sky-700 ring-sky-200",
   cancelled: "bg-rose-50 text-rose-700 ring-rose-200",
+  replaced: "bg-slate-100 text-slate-700 ring-slate-300",
 };
 
 export function StatusBadge({ status }: { status?: MembershipStatus | string | null }) {
@@ -27,4 +29,3 @@ export function StatusBadge({ status }: { status?: MembershipStatus | string | n
     </span>
   );
 }
-

@@ -4,7 +4,8 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Teacher, Visit
+from app.models import Membership, MembershipChange, MembershipStatus, MembershipType, Participant, Teacher, Visit
+from app.services.financial_ledger import create_membership_revision, create_visit_entries, current_membership_revision, reverse_visit_entries
 from app.services.lesson_finance import calculate_visit_financials, quantize_money
 
 
@@ -96,6 +97,8 @@ def create_membership(db: Session, participant_id: int, membership_type_id: int,
         status=MembershipStatus.ACTIVE,
     )
     db.add(membership)
+    db.flush()
+    create_membership_revision(db, membership, start, "Создание абонемента")
     db.commit()
     db.refresh(membership)
     return membership
@@ -116,10 +119,12 @@ def validate_membership_financials(membership: Membership) -> None:
         raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть больше цены занятия")
 
 
-def update_membership(db: Session, membership_id: int, data: dict) -> Membership:
+def update_membership(db: Session, membership_id: int, data: dict, operator_id: int | None = None) -> Membership:
     membership = db.get(Membership, membership_id)
     if not membership:
         raise HTTPException(status_code=404, detail="Абонемент не найден")
+    financial_fields = {"total_lessons", "price", "teacher_lesson_rate"}
+    financial_changed = any(key in data and getattr(membership, key) != data[key] for key in financial_fields)
     for key, value in data.items():
         setattr(membership, key, value)
     validate_membership_financials(membership)
@@ -129,6 +134,9 @@ def update_membership(db: Session, membership_id: int, data: dict) -> Membership
         membership.status = MembershipStatus.ACTIVE
     refresh_expired_status(db, membership)
     db.add(membership)
+    db.flush()
+    if financial_changed:
+        create_membership_revision(db, membership, date.today(), "Изменение финансовых условий", operator_id)
     db.commit()
     db.refresh(membership)
     return membership
@@ -162,10 +170,17 @@ def create_visit_from_completed_lesson(
     if membership.remaining_lessons <= 0:
         raise HTTPException(status_code=400, detail="Занятия закончились")
 
-    financials = calculate_visit_financials(membership)
+    revision = current_membership_revision(db, membership, visit_date or date.today())
+    financials = {
+        "lesson_price": quantize_money(Decimal(revision.lesson_price)),
+        "teacher_lesson_rate": quantize_money(Decimal(revision.teacher_lesson_rate)),
+        "teacher_earning": quantize_money(Decimal(revision.teacher_lesson_rate)),
+        "school_earning": quantize_money(Decimal(revision.lesson_price) - Decimal(revision.teacher_lesson_rate)),
+    }
     visit = Visit(
         participant_id=participant_id,
         membership_id=membership.id,
+        membership_revision_id=revision.id,
         teacher_id=teacher_id,
         visit_date=visit_date or date.today(),
         lesson_price=financials["lesson_price"],
@@ -177,6 +192,8 @@ def create_visit_from_completed_lesson(
     if membership.remaining_lessons == 0:
         membership.status = MembershipStatus.FINISHED
     db.add_all([visit, membership])
+    db.flush()
+    create_visit_entries(db, visit, revision)
     if commit:
         db.commit()
         db.refresh(visit)
@@ -197,6 +214,7 @@ def cancel_visit(db: Session, visit_id: int, commit: bool = True) -> Visit:
         raise HTTPException(status_code=404, detail="Абонемент не найден")
 
     visit.is_cancelled = True
+    reverse_visit_entries(db, visit)
     membership.remaining_lessons += 1
     if membership.end_date < date.today():
         membership.status = MembershipStatus.EXPIRED
@@ -210,6 +228,64 @@ def cancel_visit(db: Session, visit_id: int, commit: bool = True) -> Visit:
     else:
         db.flush()
     return visit
+
+
+def replace_membership(
+    db: Session,
+    membership_id: int,
+    membership_type_id: int,
+    teacher_lesson_rate: Decimal | None,
+    effective_date: date | None,
+    reason: str,
+    operator_id: int | None = None,
+) -> Membership:
+    old = db.get(Membership, membership_id)
+    if not old:
+        raise HTTPException(status_code=404, detail="Абонемент не найден")
+    if old.status not in {MembershipStatus.ACTIVE, MembershipStatus.FROZEN}:
+        raise HTTPException(status_code=400, detail="Заменить можно только активный или замороженный абонемент")
+    membership_type = db.get(MembershipType, membership_type_id)
+    if not membership_type or not membership_type.is_active:
+        raise HTTPException(status_code=404, detail="Новый тип абонемента не найден или отключён")
+
+    change_date = effective_date or date.today()
+    transferred_lessons = min(old.remaining_lessons, membership_type.lesson_count)
+    lesson_price = quantize_money(Decimal(membership_type.price) / Decimal(membership_type.lesson_count))
+    rate = quantize_money(Decimal(teacher_lesson_rate) if teacher_lesson_rate is not None else lesson_price * Decimal("0.5"))
+    if rate > lesson_price:
+        raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть больше цены занятия")
+
+    new_membership = Membership(
+        participant_id=old.participant_id,
+        membership_type_id=membership_type.id,
+        total_lessons=membership_type.lesson_count,
+        remaining_lessons=transferred_lessons,
+        price=membership_type.price,
+        teacher_lesson_rate=rate,
+        start_date=change_date,
+        end_date=change_date + timedelta(days=membership_type.validity_days),
+        status=MembershipStatus.ACTIVE if transferred_lessons > 0 else MembershipStatus.FINISHED,
+    )
+    old.status = MembershipStatus.REPLACED
+    db.add_all([old, new_membership])
+    db.flush()
+    create_membership_revision(db, new_membership, change_date, reason, operator_id)
+    db.add(
+        MembershipChange(
+            participant_id=old.participant_id,
+            old_membership_id=old.id,
+            new_membership_id=new_membership.id,
+            effective_at=change_date,
+            transfer_mode="lessons",
+            transferred_lessons=transferred_lessons,
+            transferred_value=Decimal("0.00"),
+            reason=reason,
+            created_by_operator_id=operator_id,
+        )
+    )
+    db.commit()
+    db.refresh(new_membership)
+    return new_membership
 
 
 def change_status(db: Session, membership_id: int, status: MembershipStatus) -> Membership:

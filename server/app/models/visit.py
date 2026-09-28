@@ -13,6 +13,7 @@ class Visit(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     participant_id: Mapped[int] = mapped_column(ForeignKey("participants.id"), index=True)
     membership_id: Mapped[int] = mapped_column(ForeignKey("memberships.id"), index=True)
+    membership_revision_id: Mapped[int | None] = mapped_column(ForeignKey("membership_revisions.id"), nullable=True, index=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
     visit_date: Mapped[date] = mapped_column(Date)
     lesson_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
@@ -25,6 +26,7 @@ class Visit(Base):
 
     participant = relationship("Participant", back_populates="visits")
     membership = relationship("Membership", back_populates="visits")
+    membership_revision = relationship("MembershipRevision")
     teacher = relationship("Teacher", back_populates="visits")
     schedule_participant = relationship("ScheduleEventParticipant", back_populates="visit", uselist=False)
 

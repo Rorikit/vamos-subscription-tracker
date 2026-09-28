@@ -8,6 +8,8 @@ export const membershipService = {
     api<Membership>("/memberships", { method: "POST", body: JSON.stringify(payload) }),
   update: (id: number, payload: Partial<Pick<Membership, "total_lessons" | "remaining_lessons" | "price" | "teacher_lesson_rate" | "start_date" | "end_date">>) =>
     api<Membership>(`/memberships/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  replace: (id: number, payload: { membership_type_id: number; teacher_lesson_rate?: number; effective_date?: string; transfer_mode: "lessons"; reason: string }) =>
+    api<Membership>(`/memberships/${id}/replace`, { method: "POST", body: JSON.stringify(payload) }),
   freeze: (id: number) => api<Membership>(`/memberships/${id}/freeze`, { method: "POST" }),
   unfreeze: (id: number) => api<Membership>(`/memberships/${id}/unfreeze`, { method: "POST" }),
   cancel: (id: number) => api<Membership>(`/memberships/${id}/cancel`, { method: "POST" }),

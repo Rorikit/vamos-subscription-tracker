@@ -3,6 +3,7 @@ from app.models.expense import ExpenseCategory, MonthlyExpense
 from app.models.extra_expense import ExtraExpense, ExtraExpenseStatus
 from app.models.membership import Membership, MembershipStatus
 from app.models.membership_type import MembershipType
+from app.models.membership_finance import FinancialDirection, FinancialEntry, FinancialEntryType, MembershipChange, MembershipRevision
 from app.models.operator import Operator, OperatorRole
 from app.models.participant import Participant
 from app.models.payment import Payment
@@ -15,6 +16,11 @@ __all__ = [
     "Membership",
     "MembershipStatus",
     "MembershipType",
+    "MembershipRevision",
+    "MembershipChange",
+    "FinancialEntry",
+    "FinancialEntryType",
+    "FinancialDirection",
     "AuditLog",
     "ExpenseCategory",
     "ExtraExpense",

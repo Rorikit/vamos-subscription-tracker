@@ -16,6 +16,8 @@ cd "$APP_DIR"
 git fetch origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
+python3 docs/architecture/refresh_snapshot.py
+
 if [ ! -f .env.v1 ]; then
   auth_secret="$(openssl rand -hex 32)"
   operator_password="$(openssl rand -base64 18 | tr -d '=+/')"

@@ -7,9 +7,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Membership, MembershipStatus, MembershipType, Participant, Teacher
+from app.models import FinancialEntry, Membership, MembershipChange, MembershipRevision, MembershipStatus, MembershipType, Participant, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
-from app.services.memberships import cancel_visit, create_membership, create_visit_from_completed_lesson
+from app.services.memberships import cancel_visit, create_membership, create_visit_from_completed_lesson, replace_membership
 
 
 class FinanceSnapshotTest(unittest.TestCase):
@@ -132,6 +132,35 @@ class FinanceSnapshotTest(unittest.TestCase):
         with self.assertRaises(HTTPException) as context:
             create_membership(self.db, self.participant_id, self.db.get(Membership, self.membership_id).membership_type_id, Decimal("900"))
         self.assertEqual(context.exception.status_code, 409)
+
+    def test_replacement_preserves_old_money_and_uses_new_terms_for_future_visits(self) -> None:
+        first = create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
+        replacement_type = MembershipType(name="Новый тариф", lesson_count=12, price=Decimal("12000"), validity_days=45)
+        self.db.add(replacement_type)
+        self.db.commit()
+
+        replacement = replace_membership(
+            self.db,
+            self.membership_id,
+            replacement_type.id,
+            Decimal("400"),
+            date.today(),
+            "Переход на новый тариф",
+        )
+        second = create_visit_from_completed_lesson(self.db, self.participant_id, replacement.id, self.teacher_id, date.today())
+
+        self.assertEqual(self.db.get(Membership, self.membership_id).status, MembershipStatus.REPLACED)
+        self.assertEqual(replacement.remaining_lessons, 6)
+        self.assertEqual(first.lesson_price, Decimal("1800.00"))
+        self.assertEqual(second.lesson_price, Decimal("1000.00"))
+        self.assertNotEqual(first.membership_revision_id, second.membership_revision_id)
+        self.assertEqual(self.db.query(MembershipRevision).count(), 2)
+        self.assertEqual(self.db.query(MembershipChange).count(), 1)
+        self.assertEqual(get_summary(self.db)["completed_lessons_value"], Decimal("2800.00"))
+
+        cancel_visit(self.db, first.id)
+        self.assertEqual(get_summary(self.db)["completed_lessons_value"], Decimal("1000.00"))
+        self.assertEqual(self.db.query(FinancialEntry).count(), 6)
 
 
 if __name__ == "__main__":

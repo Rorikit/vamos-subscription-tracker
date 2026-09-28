@@ -14,6 +14,7 @@ class MembershipStatus(str, PyEnum):
     EXPIRED = "expired"
     FROZEN = "frozen"
     CANCELLED = "cancelled"
+    REPLACED = "replaced"
 
 
 class Membership(Base):
@@ -36,3 +37,4 @@ class Membership(Base):
     membership_type = relationship("MembershipType", back_populates="memberships")
     visits = relationship("Visit", back_populates="membership")
     payments = relationship("Payment", back_populates="membership")
+    revisions = relationship("MembershipRevision", back_populates="membership", order_by="MembershipRevision.revision_number")
