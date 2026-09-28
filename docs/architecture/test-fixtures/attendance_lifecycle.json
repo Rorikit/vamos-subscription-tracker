@@ -1,0 +1,1 @@
+{"scenario":"attendance_lifecycle","states":["planned","attended","absent","cancelled","refunded"],"transitions":["planned_to_attended","planned_to_absent","planned_to_cancelled","attended_to_refunded"]}

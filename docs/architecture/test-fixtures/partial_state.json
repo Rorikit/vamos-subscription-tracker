@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "model_contract_version": 1,
+  "modules": [{"id": "module.a"}],
+  "entities": [{"id": "entity.ticket", "module": "module.a", "table": "tickets", "fields": [{"name": "status", "type": "String"}]}],
+  "states": [],
+  "transitions": [],
+  "relationships": [],
+  "cross_module_dependencies": [],
+  "validation_report": {"valid": true, "errors": [], "warnings": []}
+}

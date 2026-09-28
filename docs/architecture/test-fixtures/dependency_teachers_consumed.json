@@ -1,0 +1,1 @@
+{"scenario":"teachers_consumed_by_modules","expected":{"allowed_direction":"module.schedule -> module.teachers","forbidden_direction":"module.teachers -> module.schedule"}}

@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "modules": [],
+  "validation_report": {"valid": false, "errors": ["schema_version must be 2"], "warnings": []}
+}

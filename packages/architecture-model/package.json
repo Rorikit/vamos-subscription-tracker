@@ -1,0 +1,28 @@
+{
+  "name": "@rorikit/vamos-architecture-model",
+  "version": "0.1.0",
+  "description": "Versioned architecture snapshot and documentation for Vamos products",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./snapshot.json": "./dist/architecture_snapshot.json",
+    "./README.md": "./dist/README.md",
+    "./SUMMARY.md": "./dist/SUMMARY.md"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "npm run build",
+    "check": "node scripts/check.mjs"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rorikit/vamos-subscription-tracker.git",
+    "directory": "packages/architecture-model"
+  }
+}

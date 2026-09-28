@@ -1,0 +1,1 @@
+{"scenario":"derived_monthly_expense_status","persisted":["unpaid","paid"],"operational":["pending","due_today","overdue","paid"]}

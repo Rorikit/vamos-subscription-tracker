@@ -1,0 +1,32 @@
+{
+  "dependency.schedule_membership": {
+    "classification": "DOMAIN",
+    "importance": "PRIMARY",
+    "default_visibility": "MAIN"
+  },
+  "dependency.finance_visits": {
+    "classification": "DOMAIN",
+    "importance": "PRIMARY",
+    "default_visibility": "MAIN"
+  },
+  "dependency.finance_memberships": {
+    "classification": "DOMAIN",
+    "importance": "PRIMARY",
+    "default_visibility": "MAIN"
+  },
+  "dependency.practice_finance": {
+    "classification": "DOMAIN",
+    "importance": "PRIMARY",
+    "default_visibility": "MAIN"
+  },
+  "dependency.extra_expenses_finance": {
+    "classification": "DOMAIN",
+    "importance": "PRIMARY",
+    "default_visibility": "MAIN"
+  },
+  "dependency.audit_schedule_mutations": {
+    "classification": "OBSERVABILITY",
+    "importance": "SUPPORTING",
+    "default_visibility": "DETAIL"
+  }
+}

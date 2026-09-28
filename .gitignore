@@ -13,6 +13,9 @@ env/
 # Node
 node_modules/
 client/dist/
+packages/architecture-model/dist/
+packages/architecture-model/.npm-cache/
+packages/architecture-model/*.tgz
 
 # Local data
 data/

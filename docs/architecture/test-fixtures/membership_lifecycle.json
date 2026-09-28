@@ -1,0 +1,1 @@
+{"scenario":"membership_lifecycle","states":["active","finished","expired","frozen","cancelled"],"forbidden_examples":["cancelled_to_active","expired_to_active"]}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "model_contract_version": 1,
+  "modules": [{"id": "module.a", "entities": ["entity.a"]}, {"id": "module.b", "services": ["service.b"]}],
+  "entities": [{"id": "entity.a", "module": "module.a"}],
+  "services": [{"id": "service.b", "module": "module.b", "reads_entities": ["entity.a"]}],
+  "cross_module_dependencies": [],
+  "validation_report": {"valid": true, "errors": [], "warnings": []}
+}

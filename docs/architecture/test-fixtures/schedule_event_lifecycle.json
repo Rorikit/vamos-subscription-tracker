@@ -1,0 +1,1 @@
+{"scenario":"schedule_event_lifecycle","states":["scheduled","completed","cancelled"],"transitions":["scheduled_to_completed","scheduled_to_cancelled","completed_to_cancelled"]}

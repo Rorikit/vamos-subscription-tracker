@@ -1,0 +1,35 @@
+name: Publish architecture model
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/architecture-model
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: "@rorikit"
+      - name: Refresh architecture snapshot
+        working-directory: .
+        run: python docs/architecture/refresh_snapshot.py
+      - name: Assign immutable build version
+        run: npm version "0.1.${GITHUB_RUN_NUMBER}" --no-git-tag-version
+      - name: Build and verify package
+        run: npm run build && npm run check
+      - name: Publish package
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

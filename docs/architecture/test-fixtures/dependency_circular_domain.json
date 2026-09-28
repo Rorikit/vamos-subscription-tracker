@@ -1,0 +1,1 @@
+{"scenario":"circular_domain_dependency","expected":{"diagnostic":"CIRCULAR_DEPENDENCY","ignore_supporting_only":true}}

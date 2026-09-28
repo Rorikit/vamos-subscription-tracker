@@ -1,0 +1,1 @@
+{"scenario":"participants_memberships","expected":{"from":"module.participants","to":"module.memberships","importance":"SECONDARY"}}

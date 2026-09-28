@@ -1,0 +1,1 @@
+{"scenario":"boolean_visit_state","representation":"boolean_derived","field":"is_cancelled","states":["active","cancelled"]}
