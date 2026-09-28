@@ -78,7 +78,8 @@ export function SettingsPage() {
             <tr>
               <th className="th">Название</th>
               <th className="th">Занятий</th>
-              <th className="th">Цена</th>
+              <th className="th">Цена наличными</th>
+              <th className="th">Цена картой</th>
               <th className="th">Срок</th>
               <th className="th">Описание</th>
               <th className="th">Статус</th>
@@ -89,7 +90,8 @@ export function SettingsPage() {
               <tr key={type.id}>
                 <td className="td font-semibold text-ink">{type.name}</td>
                 <td className="td">{type.lesson_count}</td>
-                <td className="td">{toCurrency(type.price)}</td>
+                <td className="td">{toCurrency(type.cash_price)}</td>
+                <td className="td">{toCurrency(type.card_price)}</td>
                 <td className="td">{type.validity_days} дней</td>
                 <td className="td">{type.description ?? "—"}</td>
                 <td className="td">{type.is_active ? "Активен" : "Отключен"}</td>
@@ -145,7 +147,8 @@ export function SettingsPage() {
           <thead className="bg-slate-50">
             <tr>
               <th className="th">Название</th>
-              <th className="th">Цена</th>
+              <th className="th">Наличными</th>
+              <th className="th">Картой</th>
               <th className="th">Порядок</th>
               <th className="th">Статус</th>
               <th className="th">Действия</th>
@@ -155,7 +158,8 @@ export function SettingsPage() {
             {practiceTariffs.data?.map((tariff) => (
               <tr key={tariff.id}>
                 <td className="td font-semibold text-ink">{tariff.name}</td>
-                <td className="td">{toCurrency(tariff.price)}</td>
+                <td className="td">{toCurrency(tariff.cash_price)}</td>
+                <td className="td">{toCurrency(tariff.card_price)}</td>
                 <td className="td">{tariff.sort_order}</td>
                 <td className="td">{tariff.is_active ? "Активен" : "Отключен"}</td>
                 <td className="td">
@@ -200,12 +204,13 @@ export function SettingsPage() {
 function PracticeTariffForm({ tariff, onDone }: { tariff?: PracticeTariff; onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(tariff?.name ?? "");
-  const [price, setPrice] = useState(tariff?.price ?? "");
+  const [cashPrice, setCashPrice] = useState(tariff?.cash_price ?? tariff?.price ?? "");
+  const [cardPrice, setCardPrice] = useState(tariff?.card_price ?? tariff?.price ?? "");
   const [sortOrder, setSortOrder] = useState(String(tariff?.sort_order ?? 100));
   const [isActive, setIsActive] = useState(tariff?.is_active ?? true);
   const mutation = useMutation({
     mutationFn: () => {
-      const payload = { name, price, sort_order: Number(sortOrder || 100), is_active: isActive };
+      const payload = { name, price: cashPrice, cash_price: cashPrice, card_price: cardPrice, sort_order: Number(sortOrder || 100), is_active: isActive };
       return tariff ? practiceService.updateTariff(tariff.id, payload) : practiceService.createTariff(payload);
     },
     onSuccess: () => {
@@ -217,14 +222,17 @@ function PracticeTariffForm({ tariff, onDone }: { tariff?: PracticeTariff; onDon
   return (
     <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}>
       <Field label="Название" value={name} onChange={setName} required />
-      <Field label="Цена" value={price} onChange={setPrice} type="number" required />
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Цена наличными" value={cashPrice} onChange={setCashPrice} type="number" required />
+        <Field label="Цена картой" value={cardPrice} onChange={setCardPrice} type="number" required />
+      </div>
       <Field label="Порядок" value={sortOrder} onChange={setSortOrder} type="number" />
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
         <input checked={isActive} type="checkbox" onChange={(event) => setIsActive(event.target.checked)} />
         Активен
       </label>
       {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
-      <button className="btn-primary w-full" disabled={mutation.isPending || !name || !price}>
+      <button className="btn-primary w-full" disabled={mutation.isPending || !name || !cashPrice || !cardPrice || Number(cardPrice) < Number(cashPrice)}>
         {mutation.isPending ? "Сохранение..." : tariff ? "Сохранить тариф" : "Создать тариф"}
       </button>
     </form>

@@ -23,7 +23,7 @@ def ensure_practice_tariffs(db: Session) -> list[PracticeTariff]:
             .first()
         )
         if not exists:
-            db.add(PracticeTariff(name=item["name"], price=item["price"], is_active=True, sort_order=item["sort_order"]))
+            db.add(PracticeTariff(name=item["name"], price=item["price"], cash_price=item["price"], card_price=item["price"], is_active=True, sort_order=item["sort_order"]))
     db.commit()
     return list_practice_tariffs(db)
 
@@ -36,6 +36,9 @@ def list_practice_tariffs(db: Session, active_only: bool = False) -> list[Practi
 
 
 def create_practice_tariff(db: Session, data: dict) -> PracticeTariff:
+    data["cash_price"] = data.get("cash_price") if data.get("cash_price") is not None else data["price"]
+    data["card_price"] = data.get("card_price") if data.get("card_price") is not None else data["price"]
+    data["price"] = data["cash_price"]
     tariff = PracticeTariff(**data)
     db.add(tariff)
     db.commit()
@@ -49,6 +52,13 @@ def update_practice_tariff(db: Session, tariff_id: int, data: dict) -> PracticeT
         raise HTTPException(status_code=404, detail="Тариф практики не найден")
     for key, value in data.items():
         setattr(tariff, key, value)
+    cash = Decimal(tariff.cash_price if tariff.cash_price is not None else tariff.price)
+    card = Decimal(tariff.card_price if tariff.card_price is not None else tariff.price)
+    if cash <= 0 or card <= 0 or card < cash:
+        raise HTTPException(status_code=400, detail="Цена картой должна быть не ниже цены наличными")
+    tariff.cash_price = quantize_money(cash)
+    tariff.card_price = quantize_money(card)
+    tariff.price = tariff.cash_price
     db.add(tariff)
     db.commit()
     db.refresh(tariff)
@@ -73,12 +83,18 @@ def create_practice_rental(db: Session, payload: PracticeRentalCreate, operator:
     if not customer_name:
         raise HTTPException(status_code=400, detail="Укажите арендатора практики")
 
+    cash_price = quantize_money(Decimal(tariff.cash_price if tariff.cash_price is not None else tariff.price))
+    card_price = quantize_money(Decimal(tariff.card_price if tariff.card_price is not None else tariff.price))
+    amount = cash_price if payload.payment_method == "cash" else card_price
     rental = PracticeRental(
         registered_teacher_id=teacher.id if teacher else None,
         customer_name=customer_name,
         tariff_id=tariff.id,
         tariff_name_snapshot=tariff.name,
-        amount=quantize_money(Decimal(tariff.price)),
+        amount=amount,
+        payment_method=payload.payment_method,
+        listed_cash_price=cash_price,
+        listed_card_price=card_price,
         practiced_at=payload.practiced_at,
         status=PracticeRentalStatus.ACTIVE,
         comment=payload.comment,
@@ -167,6 +183,9 @@ def serialize_practice_rental(rental: PracticeRental) -> dict:
         "tariff_id": rental.tariff_id,
         "tariff_name_snapshot": rental.tariff_name_snapshot,
         "amount": quantize_money(Decimal(rental.amount or 0)),
+        "payment_method": rental.payment_method or "cash",
+        "listed_cash_price": quantize_money(Decimal(rental.listed_cash_price if rental.listed_cash_price is not None else rental.amount)),
+        "listed_card_price": quantize_money(Decimal(rental.listed_card_price if rental.listed_card_price is not None else rental.amount)),
         "practiced_at": rental.practiced_at,
         "status": rental.status,
         "comment": rental.comment,

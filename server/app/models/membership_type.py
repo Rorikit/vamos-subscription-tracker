@@ -14,6 +14,8 @@ class MembershipType(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     lesson_count: Mapped[int] = mapped_column(Integer)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    cash_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    card_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     validity_days: Mapped[int] = mapped_column(Integer)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -21,4 +23,3 @@ class MembershipType(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     memberships = relationship("Membership", back_populates="membership_type")
-

@@ -10,9 +10,9 @@ def seed_data(db: Session) -> None:
         return
 
     types = [
-        MembershipType(name="Старт 4", lesson_count=4, price=4000, validity_days=30, description="4 занятия на месяц"),
-        MembershipType(name="База 8", lesson_count=8, price=7200, validity_days=45, description="Популярный абонемент"),
-        MembershipType(name="Интенсив 12", lesson_count=12, price=9600, validity_days=60, description="Для регулярных занятий"),
+        MembershipType(name="Старт 4", lesson_count=4, price=4000, cash_price=4000, card_price=4400, validity_days=30, description="4 занятия на месяц"),
+        MembershipType(name="База 8", lesson_count=8, price=7200, cash_price=7200, card_price=7800, validity_days=45, description="Популярный абонемент"),
+        MembershipType(name="Интенсив 12", lesson_count=12, price=9600, cash_price=9600, card_price=10400, validity_days=60, description="Для регулярных занятий"),
     ]
     participants = [
         Participant(full_name="Анна Смирнова", phone="+7 900 111-22-33", comment="Предпочитает вечер"),

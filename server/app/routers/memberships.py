@@ -59,7 +59,7 @@ def get_membership(membership_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=MembershipRead)
 def post_membership(payload: MembershipCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
-    membership = create_membership(db, payload.participant_id, payload.membership_type_id, payload.teacher_lesson_rate)
+    membership = create_membership(db, payload.participant_id, payload.membership_type_id, payload.teacher_lesson_rate, payload.payment_method)
     log_action(db, operator, "membership_created", "membership", membership.id, f"Абонемент #{membership.id}", after=snapshot(membership, ["participant_id", "membership_type_id", "total_lessons", "remaining_lessons", "price", "teacher_lesson_rate", "status"]))
     return get_membership(membership.id, db)
 
@@ -90,6 +90,7 @@ def replace_membership_route(
         payload.effective_date,
         payload.reason,
         operator.id,
+        payload.payment_method,
     )
     log_action(
         db,
@@ -98,7 +99,7 @@ def replace_membership_route(
         "membership",
         membership.id,
         f"Абонемент #{membership_id} → #{membership.id}",
-        after={"old_membership_id": membership_id, "new_membership_id": membership.id, "membership_type_id": membership.membership_type_id},
+        after={"old_membership_id": membership_id, "new_membership_id": membership.id, "membership_type_id": membership.membership_type_id, "price": str(membership.price), "payment_method": membership.payment_method},
     )
     return get_membership(membership.id, db)
 

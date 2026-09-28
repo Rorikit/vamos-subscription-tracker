@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { PracticeRental, PracticeRentalStatus, PracticeRentalSummary, PracticeTariff } from "../types/domain";
+import type { PaymentMethod, PracticeRental, PracticeRentalStatus, PracticeRentalSummary, PracticeTariff } from "../types/domain";
 
 export type PracticeFilters = {
   date_from?: string;
@@ -32,7 +32,7 @@ export const practiceService = {
     const search = toSearch(params);
     return api<PracticeRentalSummary>(`/practice-rentals/summary${search ? `?${search}` : ""}`);
   },
-  create: (payload: { registered_teacher_id: number | null; customer_name: string; tariff_id: number; practiced_at: string; comment?: string | null }) =>
+  create: (payload: { registered_teacher_id: number | null; customer_name: string; tariff_id: number; practiced_at: string; payment_method: PaymentMethod; comment?: string | null }) =>
     api<PracticeRental>("/practice-rentals", { method: "POST", body: JSON.stringify(payload) }),
   cancel: (id: number) =>
     api<PracticeRental>(`/practice-rentals/${id}/cancel`, { method: "POST" }),
@@ -40,8 +40,8 @@ export const practiceService = {
     api<void>(`/practice-rentals/${id}`, { method: "DELETE" }),
   tariffs: (activeOnly = false) =>
     api<PracticeTariff[]>(`/practice-tariffs${activeOnly ? "?active_only=true" : ""}`),
-  createTariff: (payload: { name: string; price: string; is_active: boolean; sort_order: number }) =>
+  createTariff: (payload: { name: string; price: string; cash_price: string; card_price: string; is_active: boolean; sort_order: number }) =>
     api<PracticeTariff>("/practice-tariffs", { method: "POST", body: JSON.stringify(payload) }),
-  updateTariff: (id: number, payload: Partial<{ name: string; price: string; is_active: boolean; sort_order: number }>) =>
+  updateTariff: (id: number, payload: Partial<{ name: string; price: string; cash_price: string; card_price: string; is_active: boolean; sort_order: number }>) =>
     api<PracticeTariff>(`/practice-tariffs/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };

@@ -38,16 +38,16 @@ def tariffs(active_only: bool = Query(default=False), db: Session = Depends(get_
 @router.post("/practice-tariffs", response_model=PracticeTariffRead)
 def create_tariff(payload: PracticeTariffCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
     tariff = create_practice_tariff(db, payload.model_dump())
-    log_action(db, operator, "practice_tariff_created", "practice_tariff", tariff.id, tariff.name, after=snapshot(tariff, ["name", "price", "is_active", "sort_order"]))
+    log_action(db, operator, "practice_tariff_created", "practice_tariff", tariff.id, tariff.name, after=snapshot(tariff, ["name", "price", "cash_price", "card_price", "is_active", "sort_order"]))
     return tariff
 
 
 @router.patch("/practice-tariffs/{tariff_id}", response_model=PracticeTariffRead)
 def patch_tariff(tariff_id: int, payload: PracticeTariffUpdate, db: Session = Depends(get_db), operator: Operator = Depends(require_admin)):
     current = db.get(PracticeTariff, tariff_id)
-    before = snapshot(current, ["name", "price", "is_active", "sort_order"]) if current else None
+    before = snapshot(current, ["name", "price", "cash_price", "card_price", "is_active", "sort_order"]) if current else None
     tariff = update_practice_tariff(db, tariff_id, payload.model_dump(exclude_unset=True))
-    log_action(db, operator, "practice_tariff_updated", "practice_tariff", tariff.id, tariff.name, before=before, after=snapshot(tariff, ["name", "price", "is_active", "sort_order"]))
+    log_action(db, operator, "practice_tariff_updated", "practice_tariff", tariff.id, tariff.name, before=before, after=snapshot(tariff, ["name", "price", "cash_price", "card_price", "is_active", "sort_order"]))
     return tariff
 
 
@@ -79,7 +79,7 @@ def rentals_summary(
 @router.post("/practice-rentals", response_model=PracticeRentalRead)
 def create_rental(payload: PracticeRentalCreate, db: Session = Depends(get_db), operator: Operator = Depends(require_operator_access)):
     rental = create_practice_rental(db, payload, operator)
-    log_action(db, operator, "practice_rental_created", "practice_rental", rental.id, rental.customer_name, after={"amount": str(rental.amount), "tariff": rental.tariff_name_snapshot})
+    log_action(db, operator, "practice_rental_created", "practice_rental", rental.id, rental.customer_name, after={"amount": str(rental.amount), "payment_method": rental.payment_method, "tariff": rental.tariff_name_snapshot})
     return serialize_practice_rental(rental)
 
 

@@ -1,12 +1,12 @@
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import ExpenseCategory, FinancialEntry, FinancialEntryType, Membership, MonthlyExpense, Operator, Teacher, Visit
+from app.models import ExpenseCategory, FinancialEntry, FinancialEntryType, Membership, MonthlyExpense, Operator, PracticeRental, PracticeRentalStatus, Teacher, Visit
 from app.services.extra_expenses import get_extra_expenses_total
 from app.services.financial_ledger import create_visit_entries, current_membership_revision, reverse_visit_entries
 from app.services.lesson_finance import ensure_visit_financials, quantize_money
@@ -167,6 +167,8 @@ def get_monthly_report(db: Session, year: int, month: int) -> dict:
         "date_from": date_from,
         "date_to": date_to,
         "income_total": income_total,
+        "cash_income": summary["cash_income"],
+        "card_income": summary["card_income"],
         "memberships_sold_total": memberships_sold_total,
         "completed_lessons_value": summary["completed_lessons_value"],
         "practice_income": practice_income,
@@ -458,11 +460,29 @@ def get_summary(
     active_teachers_count = active_teachers_query.count()
     practice_income = get_practice_income(db, date_from=date_from, date_to=date_to)
     extra_expenses_total = get_extra_expenses_total(db, date_from=date_from, date_to=date_to)
+    income_by_method = {"cash": Decimal("0"), "card": Decimal("0")}
+    for entry in ledger_entries:
+        if entry.entry_type not in {FinancialEntryType.LESSON_INCOME, FinancialEntryType.LESSON_REVERSAL}:
+            continue
+        method = entry.payment_method if entry.payment_method in income_by_method else "cash"
+        sign = Decimal("-1") if entry.entry_type == FinancialEntryType.LESSON_REVERSAL else Decimal("1")
+        income_by_method[method] += Decimal(entry.amount) * sign
+
+    practice_query = db.query(PracticeRental).filter(PracticeRental.status == PracticeRentalStatus.ACTIVE)
+    if date_from:
+        practice_query = practice_query.filter(PracticeRental.practiced_at >= datetime.combine(date_from, time.min))
+    if date_to:
+        practice_query = practice_query.filter(PracticeRental.practiced_at <= datetime.combine(date_to, time.max))
+    for rental in practice_query.all():
+        method = rental.payment_method if rental.payment_method in income_by_method else "cash"
+        income_by_method[method] += Decimal(rental.amount)
 
     return {
         "memberships_sold_total": quantize_money(memberships_sold_total),
         "practice_income": practice_income,
         "income_total": quantize_money(completed_lessons_value + practice_income),
+        "cash_income": quantize_money(income_by_method["cash"]),
+        "card_income": quantize_money(income_by_method["card"]),
         "extra_expenses_total": extra_expenses_total,
         "completed_lessons_value": quantize_money(completed_lessons_value),
         "teacher_earnings_total": quantize_money(teacher_earnings_total),

@@ -45,7 +45,10 @@ export function MembershipsPage() {
                 <td className="td">{membership.membership_type?.name}</td>
                 <td className="td">{toDate(membership.start_date)} - {toDate(membership.end_date)}</td>
                 <td className="td">{membership.remaining_lessons} / {membership.total_lessons}</td>
-                <td className="td">{toCurrency(membership.price)}</td>
+                <td className="td">
+                  <div>{toCurrency(membership.price)}</div>
+                  <div className="text-xs text-slate-500">{membership.payment_method === "card" ? "Картой" : "Наличными"}</div>
+                </td>
                 <td className="td">{toCurrency(membership.teacher_lesson_rate)}</td>
                 <td className="td"><StatusBadge status={membership.status} /></td>
               </tr>

@@ -114,9 +114,11 @@ function FinanceContent({
 
       <section className="panel p-5">
         <SectionTitle title="Структура доходов" compact />
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-5 gap-3">
           <IncomeItem label="Проведённые занятия" value={report.completed_lessons_value} />
           <IncomeItem label="Практика" value={report.practice_income} />
+          <IncomeItem label="Наличными" value={report.cash_income} />
+          <IncomeItem label="Картой" value={report.card_income} />
           <IncomeItem label="Всего" value={report.income_total} strong />
         </div>
       </section>

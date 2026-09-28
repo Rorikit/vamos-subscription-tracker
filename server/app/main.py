@@ -130,6 +130,39 @@ def migrate_local_sqlite(db) -> None:
     inspector = inspect(bind)
     table_names = inspector.get_table_names()
 
+    if "membership_types" in table_names:
+        columns = {column["name"] for column in inspector.get_columns("membership_types")}
+        for column_name in ("cash_price", "card_price"):
+            if column_name not in columns:
+                db.execute(text(f"alter table membership_types add column {column_name} numeric(10, 2)"))
+        db.execute(text("update membership_types set cash_price = price where cash_price is null"))
+        db.execute(text("update membership_types set card_price = price where card_price is null"))
+        db.commit()
+
+    if "practice_tariffs" in table_names:
+        columns = {column["name"] for column in inspector.get_columns("practice_tariffs")}
+        for column_name in ("cash_price", "card_price"):
+            if column_name not in columns:
+                db.execute(text(f"alter table practice_tariffs add column {column_name} numeric(10, 2)"))
+        db.execute(text("update practice_tariffs set cash_price = price where cash_price is null"))
+        db.execute(text("update practice_tariffs set card_price = price where card_price is null"))
+        db.commit()
+
+    if "practice_rentals" in table_names:
+        columns = {column["name"] for column in inspector.get_columns("practice_rentals")}
+        additions = {
+            "payment_method": "varchar(16) default 'cash'",
+            "listed_cash_price": "numeric(10, 2)",
+            "listed_card_price": "numeric(10, 2)",
+        }
+        for column_name, column_type in additions.items():
+            if column_name not in columns:
+                db.execute(text(f"alter table practice_rentals add column {column_name} {column_type}"))
+        db.execute(text("update practice_rentals set payment_method = 'cash' where payment_method is null"))
+        db.execute(text("update practice_rentals set listed_cash_price = amount where listed_cash_price is null"))
+        db.execute(text("update practice_rentals set listed_card_price = amount where listed_card_price is null"))
+        db.commit()
+
     if "operators" in table_names:
         operator_columns = {column["name"] for column in inspector.get_columns("operators")}
         if "role" not in operator_columns:
@@ -139,6 +172,18 @@ def migrate_local_sqlite(db) -> None:
 
     if "memberships" in table_names:
         membership_columns = {column["name"] for column in inspector.get_columns("memberships")}
+        additions = {
+            "payment_method": "varchar(16) default 'cash'",
+            "listed_cash_price": "numeric(10, 2)",
+            "listed_card_price": "numeric(10, 2)",
+        }
+        for column_name, column_type in additions.items():
+            if column_name not in membership_columns:
+                db.execute(text(f"alter table memberships add column {column_name} {column_type}"))
+        db.execute(text("update memberships set payment_method = 'cash' where payment_method is null"))
+        db.execute(text("update memberships set listed_cash_price = price where listed_cash_price is null"))
+        db.execute(text("update memberships set listed_card_price = price where listed_card_price is null"))
+        db.commit()
         if "teacher_lesson_rate" not in membership_columns:
             db.execute(text("alter table memberships add column teacher_lesson_rate numeric(10, 2) default 0"))
             db.execute(
@@ -150,6 +195,29 @@ def migrate_local_sqlite(db) -> None:
                     """
                 )
             )
+            db.commit()
+
+    inspector = inspect(bind)
+    if "membership_revisions" in inspector.get_table_names():
+        columns = {column["name"] for column in inspector.get_columns("membership_revisions")}
+        additions = {
+            "payment_method": "varchar(16) default 'cash'",
+            "listed_cash_price": "numeric(10, 2)",
+            "listed_card_price": "numeric(10, 2)",
+        }
+        for column_name, column_type in additions.items():
+            if column_name not in columns:
+                db.execute(text(f"alter table membership_revisions add column {column_name} {column_type}"))
+        db.execute(text("update membership_revisions set payment_method = 'cash' where payment_method is null"))
+        db.execute(text("update membership_revisions set listed_cash_price = price where listed_cash_price is null"))
+        db.execute(text("update membership_revisions set listed_card_price = price where listed_card_price is null"))
+        db.commit()
+
+    if "financial_entries" in inspector.get_table_names():
+        columns = {column["name"] for column in inspector.get_columns("financial_entries")}
+        if "payment_method" not in columns:
+            db.execute(text("alter table financial_entries add column payment_method varchar(16)"))
+            db.execute(text("update financial_entries set payment_method = 'cash' where direction = 'INCOME'"))
             db.commit()
 
     if "teachers" in table_names:

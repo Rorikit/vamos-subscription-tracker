@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import FinancialEntry, Membership, MembershipChange, MembershipRevision, MembershipStatus, MembershipType, Participant, Teacher
+from app.models import FinancialDirection, FinancialEntry, FinancialEntryType, Membership, MembershipChange, MembershipRevision, MembershipStatus, MembershipType, Participant, Teacher
 from app.services.finance import get_summary, get_teacher_earnings
 from app.services.memberships import cancel_visit, create_membership, create_visit_from_completed_lesson, replace_membership
 
@@ -133,6 +133,29 @@ class FinanceSnapshotTest(unittest.TestCase):
             create_membership(self.db, self.participant_id, self.db.get(Membership, self.membership_id).membership_type_id, Decimal("900"))
         self.assertEqual(context.exception.status_code, 409)
 
+    def test_card_price_is_snapshotted_on_membership(self) -> None:
+        participant = Participant(full_name="Card Client")
+        membership_type = MembershipType(
+            name="Dual price",
+            lesson_count=4,
+            price=Decimal("4000"),
+            cash_price=Decimal("4000"),
+            card_price=Decimal("4600"),
+            validity_days=30,
+        )
+        self.db.add_all([participant, membership_type])
+        self.db.commit()
+
+        membership = create_membership(self.db, participant.id, membership_type.id, payment_method="card")
+
+        self.assertEqual(membership.price, Decimal("4600.00"))
+        self.assertEqual(membership.payment_method, "card")
+        self.assertEqual(membership.listed_cash_price, Decimal("4000.00"))
+        self.assertEqual(membership.listed_card_price, Decimal("4600.00"))
+        revision = self.db.query(MembershipRevision).filter_by(membership_id=membership.id).one()
+        self.assertEqual(revision.payment_method, "card")
+        self.assertEqual(revision.price, Decimal("4600.00"))
+
     def test_replacement_preserves_old_money_and_uses_new_terms_for_future_visits(self) -> None:
         first = create_visit_from_completed_lesson(self.db, self.participant_id, self.membership_id, self.teacher_id, date.today())
         replacement_type = MembershipType(name="Новый тариф", lesson_count=12, price=Decimal("12000"), validity_days=45)
@@ -160,7 +183,11 @@ class FinanceSnapshotTest(unittest.TestCase):
 
         cancel_visit(self.db, first.id)
         self.assertEqual(get_summary(self.db)["completed_lessons_value"], Decimal("1000.00"))
-        self.assertEqual(self.db.query(FinancialEntry).count(), 6)
+        self.assertEqual(self.db.query(FinancialEntry).count(), 7)
+        adjustment = self.db.query(FinancialEntry).filter(FinancialEntry.entry_type == FinancialEntryType.MEMBERSHIP_ADJUSTMENT).one()
+        self.assertEqual(adjustment.amount, Decimal("600.00"))
+        self.assertEqual(adjustment.direction, FinancialDirection.EXPENSE)
+        self.assertEqual(adjustment.payment_method, "cash")
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ export function ParticipantCardPage() {
               <p className="mt-1 text-sm text-slate-500">{current.membership_type?.name}, {toDate(current.start_date)} - {toDate(current.end_date)}</p>
               <div className="mt-3 grid grid-cols-4 gap-3 text-sm">
                 <Info label="Осталось" value={`${current.remaining_lessons} из ${current.total_lessons}`} />
-                <Info label="Стоимость" value={toCurrency(current.price)} />
+                <Info label="Стоимость" value={`${toCurrency(current.price)} · ${current.payment_method === "card" ? "картой" : "наличными"}`} />
                 <Info label="Выплата / занятие" value={toCurrency(current.teacher_lesson_rate)} />
                 <Info label="Выплата всего" value={toCurrency(Number(current.teacher_lesson_rate) * current.total_lessons)} />
               </div>

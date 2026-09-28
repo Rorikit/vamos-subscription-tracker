@@ -5,7 +5,7 @@ import { membershipService } from "../api/membershipService";
 import { membershipTypeService } from "../api/membershipTypeService";
 import { participantService } from "../api/participantService";
 import { teacherService } from "../api/teacherService";
-import { Membership, Teacher } from "../types/domain";
+import { Membership, PaymentMethod, Teacher } from "../types/domain";
 import { useDebouncedValue } from "./useDebouncedValue";
 
 export function ParticipantForm({ onDone }: { onDone: () => void }) {
@@ -46,6 +46,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
   const [endDate, setEndDate] = useState(membership?.end_date ?? "");
   const [replacementReason, setReplacementReason] = useState("");
   const [replacementDate, setReplacementDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">(membership?.payment_method ?? "");
   const [participantSearch, setParticipantSearch] = useState("");
   const debouncedSearch = useDebouncedValue(participantSearch, 300);
   const participants = useQuery({
@@ -54,12 +55,20 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
   });
   const types = useQuery({ queryKey: ["membership-types"], queryFn: membershipTypeService.list });
   const selectedType = types.data?.find((type) => String(type.id) === membershipTypeId);
+  const isReplacing = Boolean(membership && Number(membershipTypeId) !== membership.membership_type_id);
   const lessonCount = Number(totalLessons || selectedType?.lesson_count || 0);
-  const coursePrice = Number(price || selectedType?.price || 0);
+  const selectedTariffPrice = paymentMethod === "card" ? selectedType?.card_price : paymentMethod === "cash" ? selectedType?.cash_price : "0";
+  const coursePrice = Number(membership && !isReplacing ? price : selectedTariffPrice || 0);
   const lessonPrice = lessonCount > 0 ? coursePrice / lessonCount : 0;
   const teacherTotal = Number(teacherLessonRate || 0) * lessonCount;
   const schoolTotal = Math.max(coursePrice - teacherTotal, 0);
-  const isReplacing = Boolean(membership && Number(membershipTypeId) !== membership.membership_type_id);
+  function selectPaymentMethod(method: PaymentMethod) {
+    setPaymentMethod(method);
+    if (!selectedType) return;
+    const selectedPrice = method === "card" ? selectedType.card_price : selectedType.cash_price;
+    setPrice(selectedPrice);
+    setTeacherLessonRate((Number(selectedPrice) / selectedType.lesson_count / 2).toFixed(2));
+  }
   function selectMembershipType(value: string) {
     setMembershipTypeId(value);
     const nextType = types.data?.find((type) => String(type.id) === value);
@@ -67,10 +76,11 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
       setTeacherLessonRate("");
       return;
     }
-    const defaultRate = Number(nextType.price) / nextType.lesson_count / 2;
+    const priceForMethod = paymentMethod === "card" ? nextType.card_price : paymentMethod === "cash" ? nextType.cash_price : "0";
+    const defaultRate = Number(priceForMethod) / nextType.lesson_count / 2;
     setTotalLessons(String(nextType.lesson_count));
     setRemainingLessons(String(nextType.lesson_count));
-    setPrice(String(nextType.price));
+    setPrice(String(priceForMethod));
     setTeacherLessonRate(defaultRate.toFixed(2));
   }
   const mutation = useMutation({
@@ -83,6 +93,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
             effective_date: replacementDate,
             transfer_mode: "lessons",
             reason: replacementReason,
+            payment_method: paymentMethod as PaymentMethod,
           });
         }
         return membershipService.update(membership.id, {
@@ -98,6 +109,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
           participant_id: Number(selectedParticipant),
           membership_type_id: Number(membershipTypeId),
           teacher_lesson_rate: Number(teacherLessonRate),
+          payment_method: paymentMethod as PaymentMethod,
         });
     },
     onSuccess: () => {
@@ -136,6 +148,19 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
           ))}
         </select>
       </label>
+      {(!membership || isReplacing) && selectedType ? (
+        <div>
+          <div className="mb-2 text-sm font-medium text-slate-700">Способ оплаты</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className={`rounded-md border px-4 py-3 text-left ${paymentMethod === "cash" ? "border-mint bg-teal-50" : "border-slate-200 bg-white"}`} onClick={() => selectPaymentMethod("cash")}>
+              <div className="font-semibold text-ink">Наличными</div><div className="mt-1 text-sm text-slate-500">{formatMoney(Number(selectedType.cash_price))}</div>
+            </button>
+            <button type="button" className={`rounded-md border px-4 py-3 text-left ${paymentMethod === "card" ? "border-mint bg-teal-50" : "border-slate-200 bg-white"}`} onClick={() => selectPaymentMethod("card")}>
+              <div className="font-semibold text-ink">Картой</div><div className="mt-1 text-sm text-slate-500">{formatMoney(Number(selectedType.card_price))}</div>
+            </button>
+          </div>
+        </div>
+      ) : null}
       {isReplacing ? (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           <div className="font-bold">Смена абонемента</div>
@@ -169,7 +194,7 @@ export function MembershipForm({ participantId, membership, onDone }: { particip
           Заработок школы: {formatMoney(schoolTotal)}. Backend проверит итоговые значения при сохранении.
         </p>
       </div>
-      <SubmitButton label={isReplacing ? "Заменить абонемент" : membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} />
+      <SubmitButton label={isReplacing ? "Заменить абонемент" : membership ? "Сохранить абонемент" : "Создать абонемент"} pending={mutation.isPending} disabled={(!membership || isReplacing) && !paymentMethod} />
       {mutation.error ? <p className="text-sm text-coral">{mutation.error.message}</p> : null}
     </form>
   );
@@ -179,7 +204,8 @@ export function MembershipTypeForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [lessonCount, setLessonCount] = useState("8");
-  const [price, setPrice] = useState("7200");
+  const [cashPrice, setCashPrice] = useState("7200");
+  const [cardPrice, setCardPrice] = useState("7800");
   const [validityDays, setValidityDays] = useState("45");
   const [description, setDescription] = useState("");
   const mutation = useMutation({
@@ -187,7 +213,9 @@ export function MembershipTypeForm({ onDone }: { onDone: () => void }) {
       membershipTypeService.create({
         name,
         lesson_count: Number(lessonCount),
-        price,
+        price: cashPrice,
+        cash_price: cashPrice,
+        card_price: cardPrice,
         validity_days: Number(validityDays),
         description,
         is_active: true,
@@ -202,7 +230,8 @@ export function MembershipTypeForm({ onDone }: { onDone: () => void }) {
     <form className="grid grid-cols-2 gap-4" onSubmit={(event) => submit(event, mutation.mutate)}>
       <Field label="Название" value={name} onChange={setName} required />
       <Field label="Занятий" value={lessonCount} onChange={setLessonCount} type="number" required />
-      <Field label="Цена" value={price} onChange={setPrice} type="number" required />
+      <Field label="Цена наличными" value={cashPrice} onChange={setCashPrice} type="number" required />
+      <Field label="Цена картой" value={cardPrice} onChange={setCardPrice} type="number" required />
       <Field label="Дней действия" value={validityDays} onChange={setValidityDays} type="number" required />
       <div className="col-span-2">
         <Field label="Описание" value={description} onChange={setDescription} />
@@ -267,9 +296,9 @@ function Field({
   );
 }
 
-function SubmitButton({ label, pending }: { label: string; pending: boolean }) {
+function SubmitButton({ label, pending, disabled = false }: { label: string; pending: boolean; disabled?: boolean }) {
   return (
-    <button className="btn-primary w-full" type="submit" disabled={pending}>
+    <button className="btn-primary w-full" type="submit" disabled={pending || disabled}>
       {pending ? "Сохранение..." : label}
     </button>
   );

@@ -8,7 +8,7 @@ import { practiceService, type PracticeFilters } from "../../shared/api/practice
 import { teacherService } from "../../shared/api/teacherService";
 import { Modal } from "../../shared/ui/Modal";
 import { StatCard } from "../../shared/ui/StatCard";
-import type { PracticeRental } from "../../shared/types/domain";
+import type { PaymentMethod, PracticeRental } from "../../shared/types/domain";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -124,6 +124,7 @@ export function PracticePage() {
                   <th className="th">Арендатор</th>
                   <th className="th">Тариф</th>
                   <th className="th">Сумма</th>
+                  <th className="th">Способ оплаты</th>
                   <th className="th">Статус</th>
                   <th className="th">Кто добавил</th>
                   <th className="th">Действия</th>
@@ -140,6 +141,7 @@ export function PracticePage() {
                     </td>
                     <td className="td">{rental.tariff_name_snapshot}</td>
                     <td className="td font-semibold text-ink">{toCurrency(rental.amount)}</td>
+                    <td className="td">{rental.payment_method === "card" ? "Картой" : "Наличными"}</td>
                     <td className="td"><PracticeStatus status={rental.status} /></td>
                     <td className="td">{rental.created_by_name ?? "—"}</td>
                     <td className="td">
@@ -188,17 +190,20 @@ function PracticeForm({ onDone }: { onDone: () => void }) {
   const [teacherId, setTeacherId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [tariffId, setTariffId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [practicedAt, setPracticedAt] = useState(() => toDateTimeLocal(new Date()));
   const [comment, setComment] = useState("");
   const selectedTariff = tariffs.data?.find((tariff) => String(tariff.id) === tariffId);
   const selectedTeacher = teachers.data?.find((teacher) => String(teacher.id) === teacherId);
-  const canSubmit = Boolean(tariffId && practicedAt && (mode === "teacher" ? teacherId : customerName.trim()));
+  const selectedAmount = paymentMethod === "card" ? selectedTariff?.card_price : paymentMethod === "cash" ? selectedTariff?.cash_price : null;
+  const canSubmit = Boolean(tariffId && paymentMethod && practicedAt && (mode === "teacher" ? teacherId : customerName.trim()));
   const createRental = useMutation({
     mutationFn: () =>
       practiceService.create({
         registered_teacher_id: mode === "teacher" ? Number(teacherId) : null,
         customer_name: mode === "teacher" ? selectedTeacher?.full_name ?? "" : customerName.trim(),
         tariff_id: Number(tariffId),
+        payment_method: paymentMethod as PaymentMethod,
         practiced_at: new Date(practicedAt).toISOString(),
         comment: comment.trim() || null,
       }),
@@ -241,9 +246,20 @@ function PracticeForm({ onDone }: { onDone: () => void }) {
           {tariffs.data?.map((tariff) => (
             <button key={tariff.id} type="button" className={`rounded-md border px-4 py-3 text-left transition ${tariffId === String(tariff.id) ? "border-mint bg-teal-50 text-ink" : "border-slate-200 bg-white text-slate-600"}`} onClick={() => setTariffId(String(tariff.id))}>
               <div className="font-semibold">{tariff.name}</div>
-              <div className="text-sm">{toCurrency(tariff.price)}</div>
+              <div className="mt-1 text-xs">Наличными {toCurrency(tariff.cash_price)} · Картой {toCurrency(tariff.card_price)}</div>
             </button>
           ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-sm font-medium text-slate-700">Способ оплаты</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className={`rounded-md border px-4 py-3 text-left ${paymentMethod === "cash" ? "border-mint bg-teal-50 text-ink" : "border-slate-200 bg-white text-slate-600"}`} onClick={() => setPaymentMethod("cash")} disabled={!selectedTariff}>
+            <div className="font-semibold">Наличными</div><div className="text-sm">{selectedTariff ? toCurrency(selectedTariff.cash_price) : "—"}</div>
+          </button>
+          <button type="button" className={`rounded-md border px-4 py-3 text-left ${paymentMethod === "card" ? "border-mint bg-teal-50 text-ink" : "border-slate-200 bg-white text-slate-600"}`} onClick={() => setPaymentMethod("card")} disabled={!selectedTariff}>
+            <div className="font-semibold">Картой</div><div className="text-sm">{selectedTariff ? toCurrency(selectedTariff.card_price) : "—"}</div>
+          </button>
         </div>
       </div>
       <Field label="Дата и время" type="datetime-local" value={practicedAt} onChange={setPracticedAt} required />
@@ -253,7 +269,7 @@ function PracticeForm({ onDone }: { onDone: () => void }) {
       </label>
       <div className="rounded-md bg-slate-50 px-4 py-3 text-sm">
         <span className="text-slate-500">К оплате: </span>
-        <span className="font-bold text-ink">{selectedTariff ? toCurrency(selectedTariff.price) : "выберите тариф"}</span>
+        <span className="font-bold text-ink">{selectedAmount ? toCurrency(selectedAmount) : selectedTariff ? "выберите способ оплаты" : "выберите тариф"}</span>
       </div>
       {createRental.error ? <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{createRental.error.message}</div> : null}
       <button className="btn-primary w-full" disabled={!canSubmit || createRental.isPending}>

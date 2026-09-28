@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +12,7 @@ class MembershipCreate(BaseModel):
     participant_id: int
     membership_type_id: int
     teacher_lesson_rate: Decimal = Field(ge=0)
+    payment_method: Literal["cash", "card"] = "cash"
 
 
 class MembershipUpdate(BaseModel):
@@ -28,6 +30,7 @@ class MembershipReplace(BaseModel):
     effective_date: date | None = None
     transfer_mode: str = Field(default="lessons", pattern="^lessons$")
     reason: str = Field(min_length=3, max_length=500)
+    payment_method: Literal["cash", "card"] = "cash"
 
 
 class MembershipRead(ApiModel):
@@ -37,6 +40,9 @@ class MembershipRead(ApiModel):
     total_lessons: int
     remaining_lessons: int
     price: Decimal
+    payment_method: str
+    listed_cash_price: Decimal
+    listed_card_price: Decimal
     teacher_lesson_rate: Decimal
     start_date: date
     end_date: date

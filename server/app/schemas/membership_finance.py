@@ -11,6 +11,9 @@ class MembershipRevisionRead(ApiModel):
     revision_number: int
     membership_type_id: int
     price: Decimal
+    payment_method: str
+    listed_cash_price: Decimal
+    listed_card_price: Decimal
     lesson_count: int
     lesson_price: Decimal
     teacher_lesson_rate: Decimal
@@ -44,6 +47,7 @@ class FinancialEntryRead(ApiModel):
     entry_type: FinancialEntryType
     direction: FinancialDirection
     amount: Decimal
+    payment_method: str | None
     effective_date: date
     source_type: str
     source_id: int

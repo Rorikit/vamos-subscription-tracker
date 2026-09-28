@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum as PyEnum
 
-from sqlalchemy import Date, DateTime, Enum as SqlEnum, ForeignKey, Integer, Numeric
+from sqlalchemy import Date, DateTime, Enum as SqlEnum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -26,6 +26,9 @@ class Membership(Base):
     total_lessons: Mapped[int] = mapped_column(Integer)
     remaining_lessons: Mapped[int] = mapped_column(Integer)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    payment_method: Mapped[str] = mapped_column(String(16), default="cash")
+    listed_cash_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    listed_card_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     teacher_lesson_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)

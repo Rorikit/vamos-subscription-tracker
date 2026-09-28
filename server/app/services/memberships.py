@@ -4,7 +4,7 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Membership, MembershipChange, MembershipStatus, MembershipType, Participant, Teacher, Visit
+from app.models import FinancialDirection, FinancialEntry, FinancialEntryType, Membership, MembershipChange, MembershipStatus, MembershipType, Participant, Teacher, Visit
 from app.services.financial_ledger import create_membership_revision, create_visit_entries, current_membership_revision, reverse_visit_entries
 from app.services.lesson_finance import calculate_visit_financials, quantize_money
 
@@ -26,8 +26,13 @@ def refresh_expired_status(db: Session, membership: Membership) -> Membership:
 
 def serialize_membership(db: Session, membership: Membership) -> dict:
     refresh_expired_status(db, membership)
+    cash_price = membership.listed_cash_price if membership.listed_cash_price is not None else membership.price
+    card_price = membership.listed_card_price if membership.listed_card_price is not None else membership.price
     return {
         **membership.__dict__,
+        "payment_method": membership.payment_method or "cash",
+        "listed_cash_price": cash_price,
+        "listed_card_price": card_price,
         "is_currently_active": is_currently_active(membership),
         "participant": membership.participant,
         "membership_type": membership.membership_type,
@@ -65,7 +70,20 @@ def get_active_membership_by_type(db: Session, participant_id: int, membership_t
     return None
 
 
-def create_membership(db: Session, participant_id: int, membership_type_id: int, teacher_lesson_rate: Decimal | None = None) -> Membership:
+def _tariff_prices(membership_type: MembershipType) -> tuple[Decimal, Decimal]:
+    cash = quantize_money(Decimal(membership_type.cash_price if membership_type.cash_price is not None else membership_type.price))
+    card = quantize_money(Decimal(membership_type.card_price if membership_type.card_price is not None else membership_type.price))
+    return cash, card
+
+
+def _selected_price(membership_type: MembershipType, payment_method: str) -> tuple[Decimal, Decimal, Decimal]:
+    if payment_method not in {"cash", "card"}:
+        raise HTTPException(status_code=400, detail="Выберите способ оплаты: наличные или карта")
+    cash, card = _tariff_prices(membership_type)
+    return (cash if payment_method == "cash" else card), cash, card
+
+
+def create_membership(db: Session, participant_id: int, membership_type_id: int, teacher_lesson_rate: Decimal | None = None, payment_method: str = "cash") -> Membership:
     participant = db.get(Participant, participant_id)
     membership_type = db.get(MembershipType, membership_type_id)
     if not participant:
@@ -79,7 +97,8 @@ def create_membership(db: Session, participant_id: int, membership_type_id: int,
         raise HTTPException(status_code=409, detail="У участника уже есть активный абонемент этого типа. Откройте редактирование текущего абонемента.")
 
     start = date.today()
-    lesson_price = quantize_money(Decimal(membership_type.price) / Decimal(membership_type.lesson_count))
+    selected_price, cash_price, card_price = _selected_price(membership_type, payment_method)
+    lesson_price = quantize_money(selected_price / Decimal(membership_type.lesson_count))
     rate = quantize_money(Decimal(teacher_lesson_rate) if teacher_lesson_rate is not None else lesson_price * Decimal("0.5"))
     if rate < 0:
         raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть отрицательной")
@@ -90,7 +109,10 @@ def create_membership(db: Session, participant_id: int, membership_type_id: int,
         membership_type_id=membership_type_id,
         total_lessons=membership_type.lesson_count,
         remaining_lessons=membership_type.lesson_count,
-        price=membership_type.price,
+        price=selected_price,
+        payment_method=payment_method,
+        listed_cash_price=cash_price,
+        listed_card_price=card_price,
         teacher_lesson_rate=rate,
         start_date=start,
         end_date=start + timedelta(days=membership_type.validity_days),
@@ -238,6 +260,7 @@ def replace_membership(
     effective_date: date | None,
     reason: str,
     operator_id: int | None = None,
+    payment_method: str = "cash",
 ) -> Membership:
     old = db.get(Membership, membership_id)
     if not old:
@@ -250,7 +273,8 @@ def replace_membership(
 
     change_date = effective_date or date.today()
     transferred_lessons = min(old.remaining_lessons, membership_type.lesson_count)
-    lesson_price = quantize_money(Decimal(membership_type.price) / Decimal(membership_type.lesson_count))
+    selected_price, cash_price, card_price = _selected_price(membership_type, payment_method)
+    lesson_price = quantize_money(selected_price / Decimal(membership_type.lesson_count))
     rate = quantize_money(Decimal(teacher_lesson_rate) if teacher_lesson_rate is not None else lesson_price * Decimal("0.5"))
     if rate > lesson_price:
         raise HTTPException(status_code=400, detail="Выплата преподавателю не может быть больше цены занятия")
@@ -260,7 +284,10 @@ def replace_membership(
         membership_type_id=membership_type.id,
         total_lessons=membership_type.lesson_count,
         remaining_lessons=transferred_lessons,
-        price=membership_type.price,
+        price=selected_price,
+        payment_method=payment_method,
+        listed_cash_price=cash_price,
+        listed_card_price=card_price,
         teacher_lesson_rate=rate,
         start_date=change_date,
         end_date=change_date + timedelta(days=membership_type.validity_days),
@@ -270,19 +297,37 @@ def replace_membership(
     db.add_all([old, new_membership])
     db.flush()
     create_membership_revision(db, new_membership, change_date, reason, operator_id)
-    db.add(
-        MembershipChange(
+    old_revision = current_membership_revision(db, old, change_date)
+    transferred_value = quantize_money(Decimal(old_revision.lesson_price) * Decimal(old.remaining_lessons))
+    change = MembershipChange(
             participant_id=old.participant_id,
             old_membership_id=old.id,
             new_membership_id=new_membership.id,
             effective_at=change_date,
             transfer_mode="lessons",
             transferred_lessons=transferred_lessons,
-            transferred_value=Decimal("0.00"),
+            transferred_value=transferred_value,
             reason=reason,
             created_by_operator_id=operator_id,
         )
-    )
+    db.add(change)
+    db.flush()
+    adjustment = quantize_money(selected_price - transferred_value)
+    if adjustment != 0:
+        db.add(FinancialEntry(
+            participant_id=old.participant_id,
+            membership_id=new_membership.id,
+            membership_revision_id=current_membership_revision(db, new_membership, change_date).id,
+            entry_type=FinancialEntryType.MEMBERSHIP_ADJUSTMENT,
+            direction=FinancialDirection.INCOME if adjustment > 0 else FinancialDirection.EXPENSE,
+            amount=abs(adjustment),
+            payment_method=payment_method,
+            effective_date=change_date,
+            source_type="membership_change",
+            source_id=change.id,
+            description=f"Корректировка при замене абонемента #{old.id} на #{new_membership.id}",
+            created_by_operator_id=operator_id,
+        ))
     db.commit()
     db.refresh(new_membership)
     return new_membership

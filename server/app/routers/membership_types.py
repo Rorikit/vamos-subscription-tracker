@@ -33,6 +33,13 @@ def update_membership_type(membership_type_id: int, payload: MembershipTypeUpdat
     before = snapshot(membership_type, ["name", "lesson_count", "price", "validity_days", "description", "is_active"])
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(membership_type, key, value)
+    cash_price = membership_type.cash_price if membership_type.cash_price is not None else membership_type.price
+    card_price = membership_type.card_price if membership_type.card_price is not None else membership_type.price
+    if cash_price <= 0 or card_price <= 0 or card_price < cash_price:
+        raise HTTPException(status_code=400, detail="Цена картой должна быть не ниже цены наличными, обе цены должны быть больше нуля")
+    membership_type.cash_price = cash_price
+    membership_type.card_price = card_price
+    membership_type.price = cash_price
     db.add(membership_type)
     db.commit()
     db.refresh(membership_type)

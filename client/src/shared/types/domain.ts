@@ -1,4 +1,5 @@
 export type MembershipStatus = "active" | "finished" | "expired" | "frozen" | "cancelled" | "replaced";
+export type PaymentMethod = "cash" | "card";
 
 export type Participant = {
   id: number;
@@ -22,6 +23,8 @@ export type MembershipType = {
   name: string;
   lesson_count: number;
   price: string;
+  cash_price: string;
+  card_price: string;
   validity_days: number;
   description: string | null;
   is_active: boolean;
@@ -34,6 +37,9 @@ export type Membership = {
   total_lessons: number;
   remaining_lessons: number;
   price: string;
+  payment_method: PaymentMethod;
+  listed_cash_price: string;
+  listed_card_price: string;
   teacher_lesson_rate: string;
   start_date: string;
   end_date: string;
@@ -74,6 +80,8 @@ export type FinanceSummary = {
   completed_lessons_value: string;
   practice_income: string;
   income_total: string;
+  cash_income: string;
+  card_income: string;
   extra_expenses_total: string;
   teacher_earnings_total: string;
   school_earnings_total: string;
@@ -117,6 +125,8 @@ export type FinanceMonthlyReport = {
   date_from: string;
   date_to: string;
   income_total: string;
+  cash_income: string;
+  card_income: string;
   memberships_sold_total: string;
   completed_lessons_value: string;
   practice_income: string;
@@ -276,6 +286,8 @@ export type PracticeTariff = {
   id: number;
   name: string;
   price: string;
+  cash_price: string;
+  card_price: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -289,6 +301,9 @@ export type PracticeRental = {
   tariff_id: number | null;
   tariff_name_snapshot: string;
   amount: string;
+  payment_method: PaymentMethod;
+  listed_cash_price: string;
+  listed_card_price: string;
   practiced_at: string;
   status: PracticeRentalStatus;
   comment: string | null;
