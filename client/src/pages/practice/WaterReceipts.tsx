@@ -14,7 +14,7 @@ export function WaterForm({ onDone }: { onDone: () => void }) {
   const [date, setDate] = useState(localDate);
   const [method, setMethod] = useState<PaymentMethod | "">("");
   const [comment, setComment] = useState("");
-  const [requestId] = useState(() => crypto.randomUUID());
+  const [requestId] = useState(() => createRequestId());
   const valid = /^\d+(?:[.,]\d{1,2})?$/.test(amount) && Number(amount.replace(",", ".")) > 0 && Number(amount.replace(",", ".")) < 100000000 && Boolean(date && method);
   const create = useMutation({ mutationFn: () => waterService.create({ amount: amount.replace(",", "."), received_on: date, payment_method: method as PaymentMethod, comment: comment.trim() || null, request_id: requestId }), onSuccess: () => { invalidatePracticeData(queryClient); onDone(); } });
   function submit(event: FormEvent) { event.preventDefault(); if (valid && !create.isPending) create.mutate(); }
@@ -60,4 +60,11 @@ export function WaterHistory({ filters, canMutate, canDelete }: { filters: Pract
       <button className="btn-secondary" disabled={query.isFetching || query.isError || (query.data?.length ?? 0) < 100} onClick={() => setPage(page + 1)}>Далее</button>
     </div>
   </section>;
+}
+
+function createRequestId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join("-");
 }
