@@ -15,6 +15,7 @@ import { PaymentObligationsPage } from "../../pages/payment-obligations/PaymentO
 import { PracticePage } from "../../pages/practice/PracticePage";
 import { SchedulePage } from "../../pages/schedule/SchedulePage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
+import { LegacyHistoryPage } from "../../pages/LegacyHistoryPage";
 import { TeachersPage } from "../../pages/teachers/TeachersPage";
 
 const basename = (import.meta.env.VITE_BASE_PATH ?? "/").replace(/\/$/, "") || "/";
@@ -30,6 +31,7 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
       children: [
+        { path: "legacy-history", element: <RoleRoute roles={["admin", "operator", "finance"]}><LegacyHistoryPage /></RoleRoute> },
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: "dashboard", element: <RoleRoute roles={["admin", "operator", "finance"]}><DashboardPage /></RoleRoute> },
         { path: "schedule", element: <RoleRoute roles={["admin", "operator"]}><SchedulePage /></RoleRoute> },

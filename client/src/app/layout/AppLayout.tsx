@@ -9,6 +9,7 @@ import { toCurrency, toDate } from "../../shared/api/client";
 import type { NotificationSummary } from "../../shared/types/domain";
 
 const navItems = [
+  { to: "/legacy-history", label: "История из Excel", icon: ClipboardList, roles: ["admin", "operator", "finance"] },
   { to: "/dashboard", label: "Панель", icon: LayoutDashboard, roles: ["admin", "operator", "finance"] },
   { to: "/schedule", label: "Расписание", icon: CalendarDays, roles: ["admin", "operator"] },
   { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },

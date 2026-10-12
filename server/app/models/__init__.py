@@ -1,3 +1,4 @@
+from app.models.legacy import LegacyBatch, LegacySource, LegacySheet, LegacyRecord, LegacyPerson
 from app.models.water import WaterReceipt
 from app.models.audit_log import AuditLog
 from app.models.expense import ExpenseCategory, MonthlyExpense
