@@ -14,7 +14,7 @@ const navItems = [
   { to: "/participants", label: "Участники", icon: Users, roles: ["admin", "operator"] },
   { to: "/memberships", label: "Абонементы", icon: Ticket, roles: ["admin", "operator"] },
   { to: "/teachers", label: "Преподаватели", icon: GraduationCap, roles: ["admin", "operator"] },
-  { to: "/practice", label: "Практика", icon: Dumbbell, roles: ["admin", "operator", "finance"] },
+  { to: "/practice", label: "Поступления", icon: Dumbbell, roles: ["admin", "operator", "finance"] },
   { to: "/payment-obligations", label: "Обязательные платежи", icon: WalletCards, roles: ["admin", "operator"] },
   { to: "/extra-expenses", label: "Внештатные расходы", icon: ReceiptText, roles: ["admin", "operator", "finance"] },
   { to: "/finance", label: "Финансы", icon: CreditCard, roles: ["admin", "finance"] },

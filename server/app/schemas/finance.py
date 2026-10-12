@@ -40,6 +40,7 @@ class FinanceSummary(ApiModel):
     memberships_sold_total: Decimal
     completed_lessons_value: Decimal
     practice_income: Decimal
+    water_income: Decimal
     income_total: Decimal
     cash_income: Decimal
     card_income: Decimal
@@ -139,6 +140,7 @@ class FinanceMonthlyReport(ApiModel):
     memberships_sold_total: Decimal
     completed_lessons_value: Decimal
     practice_income: Decimal
+    water_income: Decimal
     regular_expenses_total: Decimal
     expenses_total: Decimal
     teacher_expense_total: Decimal

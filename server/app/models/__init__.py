@@ -1,3 +1,4 @@
+from app.models.water import WaterReceipt
 from app.models.audit_log import AuditLog
 from app.models.expense import ExpenseCategory, MonthlyExpense
 from app.models.extra_expense import ExtraExpense, ExtraExpenseStatus
@@ -13,6 +14,7 @@ from app.models.teacher import Teacher
 from app.models.visit import Visit
 
 __all__ = [
+    "WaterReceipt",
     "Membership",
     "MembershipStatus",
     "MembershipType",

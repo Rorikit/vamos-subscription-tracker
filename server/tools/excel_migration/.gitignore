@@ -1,0 +1,8 @@
+__pycache__/
+aliases.json
+manifest.local.json
+*.sqlite
+*.sqlite-journal
+*.jsonl
+preview/
+*_preview/

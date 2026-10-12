@@ -1,0 +1,30 @@
+{
+  "currency": "RUB",
+  "timezone": "Europe/Moscow",
+  "books": [
+    {
+      "source_key": "income",
+      "kind": "income",
+      "path": "C:\\Users\\User\\.codex\\.chatgpt-projects\\g-p-6a0ff11646d4819182d912248f5fc225\\outputs\\vamos_standard\\приходы денег вамоз 2 (3)_стандарт.xlsx",
+      "original_path": "C:\\Users\\User\\Downloads\\приходы денег вамоз 2 (3).xlsx"
+    },
+    {
+      "source_key": "expenses",
+      "kind": "expenses",
+      "path": "C:\\Users\\User\\.codex\\.chatgpt-projects\\g-p-6a0ff11646d4819182d912248f5fc225\\outputs\\vamos_standard\\расходы вамоз 2 (3)_стандарт.xlsx",
+      "original_path": "C:\\Users\\User\\Downloads\\расходы вамоз 2 (3).xlsx"
+    },
+    {
+      "source_key": "groups",
+      "kind": "groups",
+      "path": "C:\\Users\\User\\.codex\\.chatgpt-projects\\g-p-6a0ff11646d4819182d912248f5fc225\\outputs\\vamos_standard\\группы оказания услуг 2 (4)_стандарт.xlsx",
+      "original_path": "C:\\Users\\User\\Downloads\\группы оказания услуг 2 (4).xlsx"
+    }
+  ],
+  "sheet_dates": {},
+  "sheet_sites": {},
+  "person_bindings": {
+    "student": {},
+    "teacher": {}
+  }
+}

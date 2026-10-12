@@ -5,12 +5,15 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useAuth } from "../../app/auth/AuthProvider";
 import { toCurrency, toDate } from "../../shared/api/client";
 import { practiceService, type PracticeFilters } from "../../shared/api/practiceService";
+import { invalidatePracticeData } from "./receiptQueries";
+import { WaterForm, WaterHistory } from "./WaterReceipts";
+import { waterService } from "../../shared/api/waterService";
 import { teacherService } from "../../shared/api/teacherService";
 import { Modal } from "../../shared/ui/Modal";
 import { StatCard } from "../../shared/ui/StatCard";
 import type { PaymentMethod, PracticeRental } from "../../shared/types/domain";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = toDateTimeLocal(new Date()).slice(0, 10);
 
 export function PracticePage() {
   const auth = useAuth();
@@ -24,19 +27,27 @@ export function PracticePage() {
   const [tariffId, setTariffId] = useState("");
   const [status, setStatus] = useState<PracticeFilters["status"]>("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [receiptType, setReceiptType] = useState<"practice" | "water">("practice");
+  const [formType, setFormType] = useState<"practice" | "water">("practice");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => setPage(1), [dateFrom, dateTo, debouncedSearch, tariffId, status, receiptType]);
+
   const filters = useMemo<PracticeFilters>(
-    () => ({ date_from: dateFrom, date_to: dateTo, search: debouncedSearch, tariff_id: tariffId, status, page_size: 100 }),
-    [dateFrom, dateTo, debouncedSearch, tariffId, status],
+    () => ({ date_from: dateFrom, date_to: dateTo, search: debouncedSearch, tariff_id: tariffId, status, page, page_size: 100 }),
+    [dateFrom, dateTo, debouncedSearch, tariffId, status, page],
   );
   const rentals = useQuery({ queryKey: ["practice-rentals", filters], queryFn: () => practiceService.rentals(filters) });
   const summary = useQuery({ queryKey: ["practice-summary", dateFrom, dateTo], queryFn: () => practiceService.summary({ date_from: dateFrom, date_to: dateTo }) });
   const tariffs = useQuery({ queryKey: ["practice-tariffs"], queryFn: () => practiceService.tariffs() });
+
+  const waterSummary = useQuery({ queryKey: ["water-summary", dateFrom, dateTo], queryFn: () => waterService.summary(dateFrom, dateTo) });
+  function openForm() { setFormType(receiptType); setModalOpen(true); }
 
   const cancelRental = useMutation({
     mutationFn: practiceService.cancel,
@@ -63,30 +74,36 @@ export function PracticePage() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Практика</h1>
-          <p className="mt-1 text-sm text-slate-500">Учет аренды зала для самостоятельной практики и занятий внешних преподавателей.</p>
+          <h1 className="text-2xl font-bold text-ink">Поступления</h1>
+          <p className="mt-1 text-sm text-slate-500">Практики и вода: история поступлений и способы оплаты.</p>
         </div>
         {canMutate ? (
-          <button className="btn-primary" onClick={() => setModalOpen(true)}>
-            <Plus size={18} /> Добавить практику
+          <button className="btn-primary" onClick={openForm}>
+            <Plus size={18} /> Добавить поступление
           </button>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Доход от практики" value={toCurrency(summary.data?.income_total ?? 0)} hint="Только активные записи" />
-        <StatCard label="Количество аренд" value={String(summary.data?.rentals_count ?? 0)} hint="За выбранный период" />
-        <StatCard label="Средний чек" value={toCurrency(summary.data?.average_check ?? 0)} hint="Доход / количество аренд" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Всего поступлений" value={summary.isError || waterSummary.isError ? "—" : toCurrency(Number(summary.data?.income_total ?? 0) + Number(waterSummary.data?.income_total ?? 0))} hint="Практики и вода за период" />
+        <StatCard label="Практики" value={summary.isError ? "—" : toCurrency(summary.data?.income_total ?? 0)} hint={`${summary.data?.rentals_count ?? 0} аренд`} />
+        <StatCard label="Вода" value={waterSummary.isError ? "—" : toCurrency(waterSummary.data?.income_total ?? 0)} hint={`Записей: ${waterSummary.data?.receipts_count ?? 0}`} />
+        <StatCard label="Средний чек практики" value={summary.isError ? "—" : toCurrency(summary.data?.average_check ?? 0)} hint="Только аренды зала" />
+      </div>
+      {summary.isError || waterSummary.isError ? <ErrorState onRetry={() => { summary.refetch(); waterSummary.refetch(); }} /> : null}
+      <div className="flex gap-2" aria-label="Тип поступления">
+        <button className={receiptType === "practice" ? "btn-primary" : "btn-secondary"} aria-pressed={receiptType === "practice"} onClick={() => setReceiptType("practice")}>Практики</button>
+        <button className={receiptType === "water" ? "btn-primary" : "btn-secondary"} aria-pressed={receiptType === "water"} onClick={() => setReceiptType("water")}>Вода</button>
       </div>
 
       <section className="panel p-4">
-        <div className="grid grid-cols-[160px_160px_minmax(220px,1fr)_220px_180px] gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[160px_160px_minmax(220px,1fr)_220px_180px]">
           <Field label="Период с" type="date" value={dateFrom} onChange={setDateFrom} />
           <Field label="Период по" type="date" value={dateTo} onChange={setDateTo} />
-          <Field label="Поиск арендатора" value={search} onChange={setSearch} placeholder="ФИО или имя" />
+          <Field label={receiptType === "practice" ? "Поиск арендатора" : "Поиск"} value={search} onChange={setSearch} placeholder={receiptType === "practice" ? "ФИО или имя" : "Вода или комментарий"} />
           <label className="block text-sm font-medium text-slate-700">
             Тариф
-            <select className="input mt-1" value={tariffId} onChange={(event) => setTariffId(event.target.value)}>
+            <select disabled={receiptType === "water"} className="input mt-1 disabled:opacity-40" value={tariffId} onChange={(event) => setTariffId(event.target.value)}>
               <option value="">Все тарифы</option>
               {tariffs.data?.map((tariff) => (
                 <option key={tariff.id} value={tariff.id}>{tariff.name}</option>
@@ -104,14 +121,14 @@ export function PracticePage() {
         </div>
       </section>
 
-      <section className="panel overflow-hidden">
+      {receiptType === "water" ? <WaterHistory filters={filters} canMutate={canMutate} canDelete={canDelete} /> : <section className="panel overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4 font-bold text-ink">История практик</div>
         {rentals.isError ? <ErrorState onRetry={() => rentals.refetch()} /> : null}
         {rentals.isLoading ? <div className="p-5 text-sm text-slate-500">Загружаем практики...</div> : null}
         {rentals.data && rentals.data.length === 0 ? (
           <div className="p-8 text-sm text-slate-500">
             За выбранный период практик нет.
-            {canMutate ? <button className="ml-3 font-semibold text-mint" onClick={() => setModalOpen(true)}>Добавить практику</button> : null}
+            {canMutate ? <button className="ml-3 font-semibold text-mint" onClick={openForm}>Добавить практику</button> : null}
           </div>
         ) : null}
         {rentals.data && rentals.data.length > 0 ? (
@@ -166,21 +183,24 @@ export function PracticePage() {
             </table>
           </div>
         ) : null}
-      </section>
+        <div className="flex items-center justify-between border-t border-slate-100 p-4 text-sm">
+          <button className="btn-secondary" disabled={page === 1 || rentals.isFetching} onClick={() => setPage(page - 1)}>Назад</button>
+          <span>Страница {page}</span>
+          <button className="btn-secondary" disabled={rentals.isFetching || rentals.isError || (rentals.data?.length ?? 0) < 100} onClick={() => setPage(page + 1)}>Далее</button>
+        </div>
+      </section>}
 
-      <Modal title="Добавить практику" open={modalOpen} onClose={() => setModalOpen(false)}>
-        <PracticeForm onDone={() => setModalOpen(false)} />
+      <Modal title="Добавить поступление" open={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-md bg-slate-100 p-1" aria-label="Тип нового поступления">
+          <button className={formType === "practice" ? "btn-primary" : "btn-secondary"} aria-pressed={formType === "practice"} onClick={() => setFormType("practice")}>Практика</button>
+          <button className={formType === "water" ? "btn-primary" : "btn-secondary"} aria-pressed={formType === "water"} onClick={() => setFormType("water")}>Вода</button>
+        </div>
+        {formType === "practice" ? <PracticeForm onDone={() => { setReceiptType("practice"); setModalOpen(false); }} /> : <WaterForm onDone={() => { setReceiptType("water"); setModalOpen(false); }} /> }
       </Modal>
     </div>
   );
 }
 
-function invalidatePracticeData(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: ["practice-rentals"] });
-  queryClient.invalidateQueries({ queryKey: ["practice-summary"] });
-  queryClient.invalidateQueries({ queryKey: ["finance-monthly-report"] });
-  queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
-}
 
 function PracticeForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
@@ -208,7 +228,10 @@ function PracticeForm({ onDone }: { onDone: () => void }) {
         comment: comment.trim() || null,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["practice-rentals"] });
+      queryClient.invalidateQueries({ queryKey: ["water-receipts"] });
+  queryClient.invalidateQueries({ queryKey: ["water-summary"] });
+  queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  queryClient.invalidateQueries({ queryKey: ["practice-rentals"] });
       queryClient.invalidateQueries({ queryKey: ["practice-summary"] });
       queryClient.invalidateQueries({ queryKey: ["finance-monthly-report"] });
       queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
@@ -287,7 +310,7 @@ function PracticeStatus({ status }: { status: PracticeRental["status"] }) {
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="m-5 flex items-center justify-between rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-      <span>Не удалось загрузить данные по практике.</span>
+      <span>Не удалось загрузить поступления.</span>
       <button className="btn-secondary h-9 bg-white" onClick={onRetry}>Повторить</button>
     </div>
   );

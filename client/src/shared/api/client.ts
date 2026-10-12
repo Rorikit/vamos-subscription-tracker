@@ -26,6 +26,6 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 export const toCurrency = (value: string | number) =>
-  new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }).format(Number(value));
+  new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value));
 
 export const toDate = (value?: string | null) => (value ? new Intl.DateTimeFormat("ru-RU").format(new Date(value)) : "—");

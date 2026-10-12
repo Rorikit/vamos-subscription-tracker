@@ -79,6 +79,7 @@ export type FinanceSummary = {
   memberships_sold_total: string;
   completed_lessons_value: string;
   practice_income: string;
+  water_income: string;
   income_total: string;
   cash_income: string;
   card_income: string;
@@ -130,6 +131,7 @@ export type FinanceMonthlyReport = {
   memberships_sold_total: string;
   completed_lessons_value: string;
   practice_income: string;
+  water_income: string;
   regular_expenses_total: string;
   expenses_total: string;
   teacher_expense_total: string;
