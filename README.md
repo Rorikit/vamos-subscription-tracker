@@ -255,13 +255,13 @@ systemctl disable --now vamos-auto-deploy.timer
 Production остается доступен на корне сайта:
 
 ```text
-http://168.222.202.160/
+http://195.208.121.15/
 ```
 
 Staging-среда может работать на том же домене/IP по пути:
 
 ```text
-http://168.222.202.160/v1/
+http://195.208.121.15/v1/
 ```
 
 Схема:
